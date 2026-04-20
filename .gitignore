@@ -1,0 +1,67 @@
+# === TerraLens .gitignore ===
+
+# --- Dane (pobierane + generowane, duże) ---
+data/
+
+# --- Sekrety ---
+.env
+.env.local
+.env.*.local
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# --- Wirtualne środowiska ---
+venv/
+.venv/
+env/
+ENV/
+
+# --- Node / Frontend ---
+node_modules/
+frontend/dist/
+frontend/.vite/
+*.log
+
+# --- IDE / edytory ---
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# --- Session system backups ---
+CLAUDE.md.backup_*
+MEMORY.md.backup_*
+last_session.md.backup_*
+
+# --- Wagi modeli (pobierane lokalnie, duże) ---
+*.pt
+*.pth
+*.onnx
+*.safetensors
+
+# --- Jupyter ---
+.ipynb_checkpoints/
+
+# --- Tymczasowe ---
+*.tmp
+*.bak
+cookies.txt

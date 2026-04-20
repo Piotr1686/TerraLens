@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(where pre-commit *)",
+      "Bash(where git *)",
+      "Bash(git --version)",
+      "Bash(git init *)",
+      "Bash(git check-ignore *)",
+      "Bash(start \"\" \"https://urs.earthdata.nasa.gov/users/new\")",
+      "Bash(nvidia-smi --query-gpu=name,driver_version --format=csv,noheader)",
+      "Bash(nvidia-smi)",
+      "WebFetch(domain:pypi.org)"
+    ]
+  }
+}

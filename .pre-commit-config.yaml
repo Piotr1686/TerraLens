@@ -1,0 +1,29 @@
+# Pre-commit hooks — TerraLens
+# Instalacja: `pre-commit install` (po aktywacji env `terralens` z T0.2)
+# Ręczny run na wszystkich plikach: `pre-commit run --all-files`
+
+repos:
+  # Sanity checki
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=5000"]
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+
+  # Ruff — linter + formater Python (zastępuje black + isort + flake8)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.5.0
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+      - id: ruff-format
+
+# Uwaga: ESLint dla frontendu dodamy w S6 (T6.1).
