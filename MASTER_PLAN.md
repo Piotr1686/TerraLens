@@ -57,7 +57,7 @@ Tylko gdy:
 | Sprint | Cel | Tygodnie z briefu | Status |
 |--------|-----|-------------------|--------|
 | **S0** | Pre-flight (PoC + środowisko) | — (przed T1) | ✓ DONE (2026-04-25) |
-| **S1** | CLI skeleton + config system | T1 | ⧗ |
+| **S1** | CLI skeleton + config system | T1 | ✓ DONE (2026-04-25) |
 | **S2** | Data fetchers (GIBS + SRTM) | T1–T2 | ⧗ |
 | **S3** | AI upscaling (Satlas ESRGAN) | T2 | ⧗ |
 | **S4** | Change detection pipeline | T2 | ⧗ |
@@ -272,7 +272,7 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
 
 **Cel:** Struktura katalogów + działający CLI z pustymi komendami (fetch/process/export/deploy).
 
-### T1.1 — Struktura katalogów
+### T1.1 — Struktura katalogów ✓ DONE (2026-04-25)
 - **Dependencies:** S0 complete
 - **Output:** Struktura z PROJECT_BRIEF.md sekcja "Proponowana struktura projektu"
 - **Implementation:**
@@ -284,10 +284,10 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
   # __init__.py we wszystkich podkatalogach src/
   ```
 - **DoD:**
-  - [ ] `tree src/` identyczne ze strukturą z briefu
-  - [ ] Każdy pakiet Python ma `__init__.py`
+  - [x] `tree src/` identyczne ze strukturą z briefu
+  - [x] Każdy pakiet Python ma `__init__.py`
 
-### T1.2 — pyproject.toml + CLI entrypoint
+### T1.2 — pyproject.toml + CLI entrypoint ✓ DONE (2026-04-25)
 - **Dependencies:** T1.1
 - **Output:** `pyproject.toml` z `[project.scripts]` + `src/terralens/__main__.py`
 - **Implementation:**
@@ -300,11 +300,11 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
   3. `pip install -e .` (editable install)
   4. Test: `terralens --help` wyświetla 4 komendy
 - **DoD:**
-  - [ ] `terralens --help` działa z poziomu dowolnego katalogu
-  - [ ] Każda z 4 komend ma `--help` z docstring
-  - [ ] `terralens fetch` (jeszcze pusty) wypisuje "Not implemented yet"
+  - [x] `terralens --help` działa z poziomu dowolnego katalogu (pip install -e .; uwaga: conda run na Win11 wymaga PYTHONIOENCODING=utf-8)
+  - [x] Każda z 4 komend ma `--help` z docstring
+  - [x] `terralens fetch` wypisuje "Not implemented yet"
 
-### T1.3 — Config system (dataclass)
+### T1.3 — Config system (dataclass) ✓ DONE (2026-04-25)
 - **Dependencies:** T1.2
 - **Output:** `src/terralens/config.py` z `@dataclass Config`
 - **Implementation:**
@@ -324,10 +324,10 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
       # ... reszta zgodnie z briefem
   ```
 - **DoD:**
-  - [ ] Config singleton dostępny w `terralens.config.get_config()`
-  - [ ] Wartości zgodne z PROJECT_BRIEF Hardware Execution Policy
+  - [x] Config singleton dostępny w `terralens.config.get_config()`
+  - [x] Wartości zgodne z PROJECT_BRIEF Hardware Execution Policy (tile_size=512, vram_budget_mb=2500, batch_size=1, FP16)
 
-### T1.4 — SQLite cache schema + queries.py
+### T1.4 — SQLite cache schema + queries.py ✓ DONE (2026-04-25)
 - **Dependencies:** T1.3
 - **Output:** `src/terralens/db/queries.py` (bez ORM, czyste SQL)
 - **Implementation:**
@@ -335,8 +335,8 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
   2. Funkcje: `init_db()`, `insert_tile()`, `get_tile_status()`, `is_expired()`, `cleanup_expired()`
   3. `--refresh` flag obsługiwany przez query `WHERE expires_at > NOW()`
 - **DoD:**
-  - [ ] `terralens fetch --init-db` tworzy `data/cache.db`
-  - [ ] Test: insert + query + expiry check działa w `tests/test_db.py`
+  - [x] Test: insert + query + expiry check działa w `tests/test_db.py` — 7/7 passed
+  - [ ] `terralens fetch --init-db` tworzy `data/cache.db` (obsługa w T2.1 przy budowie fetchera)
 
 **🏁 Sprint 1 complete when:** T1.1–T1.4 all ✓. Commit: `feat(S1): CLI skeleton with config and SQLite cache`
 
@@ -907,7 +907,7 @@ Tag: `git tag v0.1.0 && git push --tags`
 
 ```
 S0  Pre-flight           [x] ✓ DONE 2026-04-25
-S1  CLI Skeleton          [ ] ⧗
+S1  CLI Skeleton          [x] ✓ DONE 2026-04-25
 S2  Data Fetchers         [ ] ⧗
 S3  AI Upscaling          [ ] ⧗
 S4  Change Detection      [ ] ⧗
