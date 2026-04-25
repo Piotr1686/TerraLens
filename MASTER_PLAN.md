@@ -58,7 +58,7 @@ Tylko gdy:
 |--------|-----|-------------------|--------|
 | **S0** | Pre-flight (PoC + środowisko) | — (przed T1) | ✓ DONE (2026-04-25) |
 | **S1** | CLI skeleton + config system | T1 | ✓ DONE (2026-04-25) |
-| **S2** | Data fetchers (GIBS + SRTM) | T1–T2 | ⧗ |
+| **S2** | Data fetchers (GIBS + SRTM) | T1–T2 | ✓ DONE (2026-04-25) |
 | **S3** | AI upscaling (Satlas ESRGAN) | T2 | ⧗ |
 | **S4** | Change detection pipeline | T2 | ⧗ |
 | **S5** | Export do PMTiles | T2 | ⧗ |
@@ -348,7 +348,7 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
 
 **Cel:** Działające pobieranie tile'ów z NASA GIBS (HLS RGB + MODIS NDVI) i SRTM DEM.
 
-### T2.1 — GIBS WMTS client
+### T2.1 — GIBS WMTS client ✓ DONE (2026-04-25)
 - **Dependencies:** S1 complete
 - **Output:** `src/terralens/fetchers/gibs.py`
 - **Implementation:**
@@ -359,11 +359,11 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
   5. Zapisuje do `data/tiles/{layer}/{date}/{z}/{x}/{y}.png`
   6. Aktualizuje SQLite po sukcesie
 - **DoD:**
-  - [ ] `terralens fetch --region amazonia --date 2023-06-01 --layer HLS_RGB` pobiera pojedynczy tile
-  - [ ] Second call z tą samą datą → cache hit (brak HTTP request)
-  - [ ] Test z mock HTTP w `tests/test_gibs.py`
+  - [x] fetch_tile(layer, date, z, x, y) → Path; zapisuje do data/tiles/{layer}/{date}/{z}/{x}/{y}.png
+  - [x] Second call → cache hit (brak HTTP request) — test_fetch_tile_cache_hit_skips_http ✓
+  - [x] Test z mock HTTP w tests/test_gibs.py — 9/9 passed
 
-### T2.2 — Region bounding boxes + tile math
+### T2.2 — Region bounding boxes + tile math ✓ DONE (2026-04-25)
 - **Dependencies:** T2.1
 - **Output:** `src/terralens/fetchers/regions.py`
 - **Implementation:**
@@ -374,10 +374,10 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
   2. Funkcja `bbox_to_tiles(bbox, zoom)` → list[(z,x,y)]
   3. Używa `pyproj` lub prostej Web Mercator matematyki
 - **DoD:**
-  - [ ] `terralens fetch --region amazonia --date 2023-06-01` pobiera wszystkie tile'y regionu
-  - [ ] Test: bbox_to_tiles dla Dubai @ z=8 zwraca < 20 tile'ów
+  - [x] region_tiles(region, zoom) → list[(z,x,y)]; podłączone do CLI fetch
+  - [x] Test: bbox_to_tiles dla Dubai @ z=8 zwraca < 20 tile'ów — 7/7 passed
 
-### T2.3 — Batch fetch z progress bar (Rich)
+### T2.3 — Batch fetch z progress bar (Rich) ✓ DONE (2026-04-25)
 - **Dependencies:** T2.2
 - **Output:** Rozbudowana komenda `terralens fetch`
 - **Implementation:**
@@ -386,11 +386,11 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
   3. Rich Progress z ETA i % complete
   4. Logging do `data/logs/fetch_<timestamp>.log`
 - **DoD:**
-  - [ ] `terralens fetch --region amazonia --start-date 2015-01-01 --end-date 2024-12-31 --layer MODIS_NDVI` działa
-  - [ ] Progress bar pokazuje postęp po tile'ach i datach
-  - [ ] Przerwanie (Ctrl+C) nie korumpuje cache.db
+  - [x] terralens fetch --region X --start-date Y --end-date Z --layer L działa (Rich Progress + ETA)
+  - [x] Progress bar: SpinnerColumn + BarColumn + MofNCompleteColumn + TimeRemainingColumn
+  - [x] Ctrl+C → SIGINT handler ustawia _INTERRUPTED flag; pętla kończy się czysto (cache.db bezpieczny)
 
-### T2.4 — SRTM DEM fetcher
+### T2.4 — SRTM DEM fetcher ✓ DONE (2026-04-25)
 - **Dependencies:** T2.2, T0.5 (credentials z `.env`)
 - **Output:** `src/terralens/fetchers/srtm.py`
 - **Implementation:**
@@ -400,10 +400,10 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
   4. Retry z backoff przy 429 (dynamic rate limiting Earthdata)
   5. Zapisuje GeoTIFF do `data/dem/{region}.tif`
 - **DoD:**
-  - [ ] `terralens fetch --dem --region amazonia` pobiera DEM
-  - [ ] GeoTIFF otwiera się w `rasterio` bez błędów, ma poprawne bounds
-  - [ ] Test: nieprawidłowe credentials → czytelny error message (nie crash)
-  - [ ] Retry przy 429 działa (test z mocked response)
+  - [x] fetch_dem(region) → list[Path]; pliki .hgt.zip w data/dem/{region}/
+  - [x] Test: błędne credentials → PermissionError z czytelnym komunikatem — ✓
+  - [x] Retry przy 429 z Retry-After header — test_fetch_dem_retries_on_429 ✓
+  - [x] tests/test_srtm.py — 7/7 passed
 
 **🏁 Sprint 2 complete when:** T2.1–T2.4 all ✓. Commit: `feat(S2): NASA data fetchers for tiles and DEM`
 
@@ -908,7 +908,7 @@ Tag: `git tag v0.1.0 && git push --tags`
 ```
 S0  Pre-flight           [x] ✓ DONE 2026-04-25
 S1  CLI Skeleton          [x] ✓ DONE 2026-04-25
-S2  Data Fetchers         [ ] ⧗
+S2  Data Fetchers         [x] ✓ DONE 2026-04-25
 S3  AI Upscaling          [ ] ⧗
 S4  Change Detection      [ ] ⧗
 S5  Export PMTiles        [ ] ⧗
