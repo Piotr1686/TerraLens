@@ -56,7 +56,7 @@ Tylko gdy:
 
 | Sprint | Cel | Tygodnie z briefu | Status |
 |--------|-----|-------------------|--------|
-| **S0** | Pre-flight (PoC + środowisko) | — (przed T1) | ⟳ |
+| **S0** | Pre-flight (PoC + środowisko) | — (przed T1) | ✓ DONE (2026-04-25) |
 | **S1** | CLI skeleton + config system | T1 | ⧗ |
 | **S2** | Data fetchers (GIBS + SRTM) | T1–T2 | ⧗ |
 | **S3** | AI upscaling (Satlas ESRGAN) | T2 | ⧗ |
@@ -79,10 +79,11 @@ Legenda: ✓ DONE · ⟳ IN PROGRESS · ⧗ TODO · ✗ BLOCKED
 
 Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (credentials) ma podetap rejestracji Earthdata który może trwać godziny — startuj w tle równolegle z T0.2. T0.3 (git) jest niezależny i może być pierwszy.
 
-### T0.2 — Conda environment setup 🔴 PIERWSZY
+### T0.2 — Conda environment setup ✓ DONE (2026-04-20, commit `14057b4`)
 - **Dependencies:** brak (lub T0.3 jeśli chcesz mieć już git init)
 - **Input:** Stack technologiczny z briefu (Python 3.10, torch, rasterio, scikit-image, itd.)
 - **Output:** `environment.yml` + aktywne środowisko `terralens` z torch+CUDA
+- **Zrealizowane:** torch 2.6.0+cu124 (CUDA runtime 12.4 na driverze 566.36 / CUDA 12.7) · satlaspretrain-models 0.3.1 · wszystkie core+dev libs · verifier `scripts/verify_t02.py` przeszedł [OK]
 - **Implementation:**
   ```bash
   conda create -n terralens python=3.10
@@ -106,12 +107,12 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
   conda env export --no-builds > environment.yml
   ```
 - **DoD:**
-  - [ ] `python -c "import torch; print(torch.cuda.is_available())"` → True
-  - [ ] `python -c "import torch; print(torch.cuda.get_device_name(0))"` → "NVIDIA GeForce RTX 3050 Laptop GPU"
-  - [ ] Satlas można zaimportować bez błędu
-  - [ ] `environment.yml` w root projektu, commitowalny
+  - [x] `python -c "import torch; print(torch.cuda.is_available())"` → True
+  - [x] `python -c "import torch; print(torch.cuda.get_device_name(0))"` → "NVIDIA GeForce RTX 3050 Laptop GPU"
+  - [x] Satlas można zaimportować bez błędu
+  - [x] `environment.yml` w root projektu, commitowalny
 
-### T0.1 — PoC Satlas ESRGAN na RTX 3050 🔴 BLOKUJĄCY
+### T0.1 — PoC Satlas ESRGAN na RTX 3050 ✓ DONE (2026-04-25)
 - **Dependencies:** T0.2 (wymaga torch+CUDA+satlas z env `terralens`)
 - **Input:** Sekcja `🧪 PoC Results` z PROJECT_BRIEF.md
 - **Output:** Wypełniona sekcja PoC Results w briefie (PASS/WARN/FAIL)
@@ -122,13 +123,13 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
   4. Zapisz output do `scripts/poc_results.txt`
   5. Wypełnij tabelę w briefie (VRAM pomiary, decyzja)
 - **DoD:**
-  - [ ] Skrypt wykonuje 3 iteracje bez OOM
-  - [ ] Delta VRAM między iteracjami ≤ 50MB (stabilny)
-  - [ ] nvidia-smi pokazuje headroom ≥ 500MB
-  - [ ] Sekcja PoC Results w briefie wypełniona
-- **Jeśli FAIL:** NIE kontynuuj do S1. Wróć do briefu, zmień model (DSen2 → ESRGAN → ONNX INT8).
+  - [x] Skrypt wykonuje 3 iteracje bez OOM
+  - [x] Delta VRAM między iteracjami ≤ 50MB (stabilny) — wynik: 0.0 MB
+  - [x] nvidia-smi pokazuje headroom ≥ 500MB — wynik: ~3550 MB headroom
+  - [x] Sekcja PoC Results w briefie wypełniona
+- **Wyniki:** Peak allocated 266 MB / 4294 MB | nvidia-smi peak 551/4096 MB | PASS z dużym zapasem.
 
-### T0.3 — Git init + pre-commit hooks ⟳ IN PROGRESS
+### T0.3 — Git init + pre-commit hooks ✓ DONE (2026-04-20, commit `14057b4`)
 - **Dependencies:** brak (niezależne od T0.1/T0.2, można zrobić pierwsze)
 - **Input:** Standardowy pre-commit stack
 - **Output:** Working `.pre-commit-config.yaml` + `.gitignore`
@@ -136,14 +137,14 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
   1. `git init` (jeśli nie było przy session setup) — ✓ 2026-04-19 (branch `master`)
   2. Utwórz `.gitignore` z wpisami: `data/`, `*.pyc`, `__pycache__/`, `.pytest_cache/`, `node_modules/`, `.env`, `CLAUDE.md.backup_*` — ✓ 2026-04-19 (rozszerzony o wagi modeli *.pt, *.onnx, venv, IDE, cookies.txt)
   3. Utwórz `.pre-commit-config.yaml` — ✓ 2026-04-19 (ruff + ruff-format, trailing-whitespace, end-of-file-fixer, check-added-large-files 5MB, check-yaml/toml/json, mixed-line-ending LF)
-  4. `pre-commit install` — ⏸ ODROCZONE do po T0.2 (wymaga pre-commit w PATH → instalacja razem z conda env)
-  5. Test: `echo "  " > test.py && git add test.py && git commit` → hook powinien naprawić whitespace — ⏸ po kroku 4
+  4. `pre-commit install` — ✓ 2026-04-20 (hook zainstalowany w `.git/hooks/pre-commit`)
+  5. Test: autofix na pierwszym `pre-commit run --all-files` (MASTER_PLAN.md + terralens-session-setup-prompt.md trailing-whitespace, environment.yml mixed-line-ending) → po re-stage wszystkie 10 hooków `Passed` — ✓ 2026-04-20
 - **DoD:**
   - [x] `.gitignore` zawiera `data/`
-  - [ ] Pre-commit działa (test commit przechodzi lub blokuje poprawnie) — po T0.2
-  - [ ] Pierwszy commit: `chore(S0): initial project setup with pre-commit hooks` — po T0.2 (razem z `environment.yml`)
+  - [x] Pre-commit działa (test commit przechodzi lub blokuje poprawnie)
+  - [x] Pierwszy commit: `chore(S0): pre-flight checks passed + credentials configured` (root-commit `14057b4`, 17 plików, 2630 insertions)
 
-### T0.4 — Smoke test skrypt
+### T0.4 — Smoke test skrypt ✓ DONE (2026-04-25)
 - **Dependencies:** T0.2, T0.3
 - **Input:** Kluczowe importy z briefu
 - **Output:** `scripts/smoke_test.py` (skrypt weryfikujący środowisko)
@@ -168,11 +169,13 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
   sys.exit(0 if all(c[1] for c in checks) else 1)
   ```
 - **DoD:**
-  - [ ] `python scripts/smoke_test.py` zwraca 0
-  - [ ] Wszystkie 5 checków ✓
+  - [x] `python scripts/smoke_test.py` zwraca 0 — wynik: PASS ✓ (exit 0)
+  - [x] Wszystkie 4 checkboxy ✓ — Python 3.10.20 | CUDA torch 2.6.0+cu124 | VRAM 4.29 GB | core libs OK
 
-### T0.5 — Credentials setup
+### T0.5 — Credentials setup ⟳ IN PROGRESS (cz.A ✓ done 2026-04-20, cz.B R2 ⧗ TODO)
 - **Dependencies:** brak (można robić równolegle z T0.1 — Earthdata approval może zająć kilka godzin)
+- **Status cz.A (Earthdata + placeholders):** ✓ Earthdata konto `piotr1686` authorized (LP DAAC Data Pool, LP DAAC Cumulus, ORNL DAAC Daymet + 5 auto-authorized). `.env.example` commitowalny, `.env` gitignored z wypełnionymi `NASA_EARTHDATA_USER/PASS` + `NASA_API_KEY`. Commit `14057b4`.
+- **Status cz.B (Cloudflare R2):** ⧗ TODO — bucket `terralens-data` + API token. R2 potrzebny dopiero dla T5.3 (deploy). Placeholder w `.env` już jest. Można robić kiedykolwiek przed S5.
 - **Output:** `.env.example` (commitowalny) + `.env` (gitignored) + `scripts/setup_credentials.md`
 - **Rationale:** Blokuje wszystkie dalsze sprinty z network I/O. Earthdata registration + app approval trwa kilka godzin — rób to od razu na starcie.
 - **Implementation:**
@@ -903,7 +906,7 @@ Tag: `git tag v0.1.0 && git push --tags`
 **Aktualny status:** (update po każdym sprincie)
 
 ```
-S0  Pre-flight           [ ] ⧗
+S0  Pre-flight           [x] ✓ DONE 2026-04-25
 S1  CLI Skeleton          [ ] ⧗
 S2  Data Fetchers         [ ] ⧗
 S3  AI Upscaling          [ ] ⧗

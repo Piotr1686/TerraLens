@@ -1,0 +1,20 @@
+=== T0.1 PoC: Satlas SwinB VRAM test ===
+torch 2.6.0+cu124 | CUDA 12.4
+GPU: NVIDIA GeForce RTX 3050 Laptop GPU
+VRAM total: 4294 MB
+
+[1] Ładowanie Satlas SwinB SI_RGB (FP16)…
+    VRAM po załadowaniu: 183.2 MB (+183.2 MB)
+    nvidia-smi         : 551/4096 MB
+
+[2] 3 × inference (tile 512×512, FP16, inference_mode)…
+    iter 1: 266.0 MB | 437/4096 MB
+    iter 2: 266.0 MB | 493/4096 MB
+    iter 3: 266.0 MB | 493/4096 MB
+
+[3] Analiza VRAM…
+    Peak allocated : 266.0 MB / 4294 MB
+    Delta iters    : 0.0 MB  (✓ STABILNY)
+    Headroom (est) : 4028.5 MB
+
+[4] WYNIK: ✅ PASS

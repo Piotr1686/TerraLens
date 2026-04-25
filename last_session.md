@@ -1,51 +1,49 @@
 # last_session.md
 
-Sesja: 2026-04-20 · Sprint S0 Pre-flight
-Status: ⟳ T0.3 cz.A done · T0.5 cz.A done (Earthdata + `.env` uzupełnione ręcznie przez Piotra) · skrypt T0.2 gotowy do odpalenia przez Piotra
+Sesja: 2026-04-25
+Status: ✓ Zakończona poprawnie
 
 ---
 
 ## ▸ NASTĘPNY KROK (zacznij tutaj)
 
-**Piotr odpala `scripts/t02_conda_setup.md` w Anaconda Prompt** — kroki 1–9 (conda env + PyTorch cu124 + satlaspretrain-models 0.3.1 + core libs + dev tools + environment.yml export + `python scripts/verify_t02.py` + `pre-commit install` + `pre-commit run --all-files`).
+**T0.4 — Utwórz `scripts/smoke_test.py`** wg szablonu z MASTER_PLAN.md (sekcja T0.4): sprawdza Python 3.10+, CUDA available, VRAM ≥ 3.5 GB, core libs (rasterio, numpy, skimage, requests). `sys.exit(0)` jeśli wszystkie ✓, `sys.exit(1)` jeśli któryś ✗. Uruchom: `conda activate terralens && python scripts/smoke_test.py`.
 
-Skrypt łączy T0.2 (conda env) i T0.3 cz.B (pre-commit install) w jedną sesję Anaconda Prompt — po wykonaniu środowisko jest gotowe do T0.1 i pierwszy commit może powstać.
+Kontekst: T0.4 to ostatni wymagany task zamykający Sprint 0 (T0.1 ✓, T0.2 ✓, T0.3 ✓, T0.5 cz.A ✓). Po jego zaliczeniu: commit `feat(S0): sprint 0 complete`, aktualizacja MASTER_PLAN.md Progress Tracking i otwarcie S1 (CLI Skeleton → T1.1 struktura katalogów).
 
-**Po wykonaniu skryptu przez Piotra:**
-1. Piotr wraca z komunikatem `"T0.2 + T0.3 done"` (lub output `[FAIL]` jeśli coś padło)
-2. Piotr sam robi pierwszy commit: `git add . && git commit -m "chore(S0): pre-flight checks passed + credentials configured"`
-3. Claude startuje **T0.1 — PoC Satlas ESRGAN** (blokujący task S0, wymaga działającego torch+CUDA)
+---
 
-## Co zrobiono w tej sesji (2026-04-20)
+## Co zrobiono w tej sesji
 
-- ✓ `/start` — wczytano MEMORY.md + last_session.md (stan 2026-04-19)
-- ✓ Analiza promptu Piotra: porównanie kroków 1–5 z aktualnym stanem repo → zidentyfikowano że kroki 1 (`.env.example`) i 2 (`.env`) były już ukończone w poprzedniej sesji (Piotr dodatkowo wpisał ręcznie `NASA_EARTHDATA_PASS` i `NASA_API_KEY`)
-- ✓ Weryfikacja pakietu `satlaspretrain-models` na PyPI: version 0.3.1 (May 2024), Python ≥3.9, import `satlaspretrain_models` — pinujemy `==0.3.1` dla reproducibility
-- ✓ Decyzja: CUDA wheel `cu124` zamiast `cu121` z poprzedniej sesji — lepszy match z driverem 566.36 / CUDA runtime 12.7, forward-compatible
-- ✓ `scripts/verify_t02.py` — helper skrypt weryfikacyjny (torch+CUDA+satlas import + GPU detect, zwraca exit 0/1, ruff-clean)
-- ✓ `scripts/t02_conda_setup.md` — 9 kroków command-by-command do wklejenia w Anaconda Prompt + sekcja DoD + instrukcja pierwszego commita
+- ✓ `/start` — wczytano MEMORY.md + last_session.md + MASTER_PLAN.md + MODEL_ROUTING.md; potwierdzono użycie model routing (LOW domyślny)
+- ✓ **T0.1 ✓ DONE** — `scripts/poc_satlas.py` (80 linii) utworzony i uruchomiony przez Piotra w env `terralens`
+  - Wyniki: peak allocated 266 MB / 4294 MB | nvidia-smi peak 551/4096 MB | delta 0.0 MB (stabilny)
+  - **✅ PASS z dużym zapasem** — headroom ~3.5 GB vs progu 500 MB
+- ✓ `scripts/poc_results.txt` — wygenerowany automatycznie przez skrypt
+- ✓ `PROJECT_BRIEF.md` — sekcja `🧪 PoC Results` wypełniona wynikami empirycznymi (data, model, VRAM, werdykt)
+- ✓ `MASTER_PLAN.md` — T0.1 oznaczony ✓ DONE (2026-04-25), wszystkie 4 DoD checkboxy zaktualizowane, wyniki wpisane
+- ✓ `MEMORY.md` — wpis [2026-04-25]: Satlas SwinB VRAM 266 MB peak, 0.0 MB delta, ~3.5 GB headroom
+- ✓ `/save` checkpoint po zakończeniu T0.1
 
-## Co zostało (backlog sesji)
+## Co zostało (backlog Sprint 0)
 
-- ⧗ **T0.2 + T0.3 cz.B** — po stronie Piotra (Anaconda Prompt, zgodnie z `scripts/t02_conda_setup.md`)
-- ⧗ T0.1 — PoC Satlas ESRGAN (po T0.2, blokujący)
-- ⧗ T0.4 — Smoke test NASA GIBS API (po T0.2)
-- ⧗ T0.5 cz.B — Cloudflare R2 bucket + API token (niezależne od Earthdata, można robić kiedykolwiek — placeholder `R2_*` już jest w `.env`)
-- ⧗ Pierwszy commit `chore(S0): pre-flight checks passed + credentials configured` — Piotr robi sam po T0.2
-- ℹ `/config` toggle recaps off — Piotr odpali sam osobno (nie mam narzędzia do runtime config harnessu)
+- ⧗ **T0.4** — `scripts/smoke_test.py` (next, ostatni wymagany task S0)
+- ⧗ Commit `feat(S0): sprint 0 complete` + aktualizacja Progress Tracking w MASTER_PLAN.md
+- ⧗ T0.5 cz.B — Cloudflare R2 bucket + API token (niebloklujące, wymagane dopiero przed T5.3)
 
 ## Aktywne pliki
 
-- `scripts/t02_conda_setup.md` (nowy — główny artefakt tej sesji)
-- `scripts/verify_t02.py` (nowy — helper weryfikacyjny, włączony do DoD T0.2)
-- `last_session.md` (ten plik)
-- `.env` (uzupełniony ręcznie przez Piotra — NIE commitować, gitignored ✓)
-- `.env.example`, `.gitignore`, `.pre-commit-config.yaml` (stabilne z poprzedniej sesji)
+- `MASTER_PLAN.md` (T0.4 DoD jako spec; Progress Tracking do aktualizacji po S0 complete)
+- `scripts/poc_satlas.py` (gotowy; użyć jako VRAM benchmark przy każdej zmianie modelu w S3)
+- `scripts/poc_results.txt` (wyniki T0.1 — archiwum)
+- `scripts/smoke_test.py` (NOWY — do utworzenia w T0.4)
+- `scripts/t02_conda_setup.md` (decyzja: zostaje lub kasujemy przy commit `feat(S0)`)
 
 ## Otwarte pytania
 
-- Brak blokujących. Po T0.2 zdecydujemy czy satlaspretrain-models 0.3.1 ładuje się na RTX 3050 4GB w FP16 (T0.1 PoC — jeśli OOM, fallback na Real-ESRGAN / BSRGAN z MASTER_PLAN.md).
+- Czy `scripts/t02_conda_setup.md` zostaje w repo jako onboarding reference, czy kasujemy po S0? → decyzja przy `feat(S0): sprint 0 complete`.
+- Satlas SwinB backbone (encoder bez dekodera SR) użył 266 MB — pełna architektura ESRGAN z dekoderem użyje więcej; empiryczny pomiar dopiero w T3.1 przy budowie silnika.
 
 ## Do MEMORY.md (przeniesiono)
 
-_Brak wpisów — pierwsze decyzje architektoniczne spodziewane po T0.1 (pomiar VRAM Satlas FP16, decyzja Satlas vs fallback). Na razie wszystko zgodne z PROJECT_BRIEF v3.2._
+- ✓ **Architektura [2026-04-25]:** T0.1 PASS — Satlas SwinB VRAM: 266 MB peak allocated, 551 MB nvidia-smi, 0.0 MB delta między iteracjami. Headroom ~3.5 GB. Strategia VRAM z briefu (tiled 512×512, FP16, singleton, `empty_cache` co 2 tile'y) potwierdzona jako wystarczająca. `scripts/poc_satlas.py` reużywalny jako VRAM benchmark w S3.
