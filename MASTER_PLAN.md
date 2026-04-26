@@ -477,7 +477,7 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
 
 **Cel:** SSIM z cloud masking + histogram matching + CVA w LAB.
 
-### T4.1 — Cloud masking z QA band
+### T4.1 — Cloud masking z QA band ✓ DONE (2026-04-26)
 - **Dependencies:** S3 complete
 - **Output:** `src/terralens/processors/cloud_mask.py`
 - **Implementation:**
@@ -485,8 +485,8 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
   2. Funkcja `apply_cloud_mask(image, qa_band, threshold=0.2)` → NaN gdzie chmury
   3. Jeśli >50% obrazu zamaskowane → flaga "insufficient data"
 - **DoD:**
-  - [ ] Test na tile'u z chmurami → mask działa (visual check)
-  - [ ] Edge case: 100% chmur → raise warning, skip SSIM
+  - [x] Test na tile'u z chmurami → mask działa — 16/16 PASS
+  - [x] Edge case: 100% chmur → InsufficientDataWarning — PASS
 
 ### T4.2 — Histogram matching
 - **Dependencies:** T4.1
