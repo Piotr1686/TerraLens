@@ -415,7 +415,7 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
 
 **Cel:** Upscale 4x tile'ów satelitarnych, stabilny VRAM.
 
-### T3.1 — Satlas ESRGAN wrapper z singleton loading
+### T3.1 — Satlas ESRGAN wrapper z singleton loading ✓ DONE (2026-04-26)
 - **Dependencies:** S2 complete + T0.1 PASS
 - **Output:** `src/terralens/engines/satlas_esrgan.py`
 - **Implementation:**
@@ -423,10 +423,11 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
   2. Singleton pattern — model ładowany lazy przy pierwszym `upscale()`
   3. FP16, `.cuda()`, `torch.inference_mode()`
   4. Model weights cache w `data/models/satlas_esrgan_x4.pt`
+- **Uwaga arch:** Satlas SwinB FPN zwraca feature mapę w pełnej rozdzielczości wejścia (1/1 scale, nie 1/4). Dekoder SR używa 2× PixelShuffle(2) = 4× całkowite SR.
 - **DoD:**
-  - [ ] `upscale(tile_256x256)` zwraca `tile_1024x1024`
-  - [ ] `torch.cuda.memory_allocated()` stabilny po 10 iteracjach (< 50MB delta)
-  - [ ] `.unload()` zwalnia VRAM do < 200MB
+  - [x] `upscale(tile_256x256)` zwraca `tile_1024x1024` — 6/6 integration tests PASS
+  - [x] `torch.cuda.memory_allocated()` stabilny po 10 iteracjach (< 50MB delta) — PASS
+  - [x] `.unload()` zwalnia VRAM do < 200MB — PASS
 
 ### T3.2 — @vram_safe decorator + dynamic tile sizing
 - **Dependencies:** T3.1
