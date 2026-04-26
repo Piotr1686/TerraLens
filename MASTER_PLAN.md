@@ -429,7 +429,7 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
   - [x] `torch.cuda.memory_allocated()` stabilny po 10 iteracjach (< 50MB delta) — PASS
   - [x] `.unload()` zwalnia VRAM do < 200MB — PASS
 
-### T3.2 — @vram_safe decorator + dynamic tile sizing
+### T3.2 — @vram_safe decorator + dynamic tile sizing ✓ DONE (2026-04-26)
 - **Dependencies:** T3.1
 - **Output:** `src/terralens/models/vram_safe.py`
 - **Implementation:**
@@ -449,8 +449,8 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
   ```
   Dodatkowo: `adaptive_tile_size()` → zwraca 512 lub 256 na podstawie wolnego VRAM
 - **DoD:**
-  - [ ] Test: wymuszenie OOM przez duży batch → RuntimeError z czytelnym komunikatem
-  - [ ] Adaptive tile sizing działa (test z mock mem_get_info)
+  - [x] Test: wymuszenie OOM przez duży batch → RuntimeError z czytelnym komunikatem — 11/11 PASS
+  - [x] Adaptive tile sizing działa (test z mock mem_get_info) — PASS
 
 ### T3.3 — Tiled processing z overlap blending
 - **Dependencies:** T3.1, T3.2
