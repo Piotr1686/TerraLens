@@ -911,7 +911,7 @@ Tag: `git tag v0.1.0 && git push --tags`
 S0  Pre-flight           [x] ✓ DONE 2026-04-25
 S1  CLI Skeleton          [x] ✓ DONE 2026-04-25
 S2  Data Fetchers         [x] ✓ DONE 2026-04-25
-S3  AI Upscaling          [ ] ⧗
+S3  AI Upscaling          [x] ✓ DONE 2026-04-26
 S4  Change Detection      [ ] ⧗
 S5  Export PMTiles        [ ] ⧗
 S6  Frontend PoC + Decision [ ] ⧗
