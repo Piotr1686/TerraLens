@@ -499,7 +499,7 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
   - [x] Różnica w średniej jasności po match < 5% — PASS
   - [x] NaN pixels preserved (nie wypełnia ich) — 9/9 testów PASS
 
-### T4.3 — SSIM z preprocessingiem
+### T4.3 — SSIM z preprocessingiem ✓ DONE (2026-04-26)
 - **Dependencies:** T4.1, T4.2
 - **Output:** `src/terralens/processors/ssim.py`
 - **Implementation:**
@@ -512,11 +512,12 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
   5. Zwróć SSIM map jako heatmapę (niskie SSIM = zmiana)
   ```
 - **DoD:**
-  - [ ] Test: dwa identyczne obrazy → SSIM heatmap = 1.0 everywhere
-  - [ ] Test: obraz z deforestacją → heatmap pokazuje zmiany w właściwych miejscach
-  - [ ] Eksport heatmapy do kolorowego PNG (`viridis` colormap)
+  - [x] Test: dwa identyczne obrazy → SSIM heatmap = 1.0 everywhere — PASS
+  - [x] Test: obraz z deforestacją → heatmap pokazuje zmiany w właściwych miejscach — PASS
+  - [x] Eksport heatmapy do kolorowego PNG (`viridis` colormap) — PASS
+  - 18/18 testów PASS — commit `2711f0d`
 
-### T4.4 — NDVI diff dla MODIS
+### T4.4 — NDVI diff dla MODIS ✓ DONE (2026-04-26)
 - **Dependencies:** T4.1
 - **Output:** `src/terralens/processors/ndvi.py`
 - **Implementation:**
@@ -524,10 +525,11 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
   2. Funkcja `ndvi_diff(ndvi_before, ndvi_after)` → diff map + statystyki
   3. Statystyki: % pixels z NDVI decrease > 0.2 (deforestation threshold)
 - **DoD:**
-  - [ ] Test na Amazonia 2015 vs 2023 → diff pokazuje deforestation patches
-  - [ ] Statystyki zapisywane do `data/processed/{region}/changes.json`
+  - [x] Test na Amazonia 2015 vs 2023 → diff pokazuje deforestation patches — PASS
+  - [x] Statystyki zapisywane do `data/processed/{region}/changes.json` — PASS
+  - 21/21 testów PASS — commit `89e2cb2`
 
-### T4.5 — Change Vector Analysis w LAB
+### T4.5 — Change Vector Analysis w LAB ✓ DONE (2026-04-26)
 - **Dependencies:** T4.1, T4.2
 - **Output:** `src/terralens/processors/cva.py`
 - **Implementation:**
@@ -536,8 +538,9 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
   3. Thresholding + color coding
   4. Statystyki per region (% urban, % water, % vegetation estimate)
 - **DoD:**
-  - [ ] Test: CVA wykrywa zmiany które SSIM pomija (np. zmiana koloru bez struktury)
-  - [ ] Statystyki spójne z NDVI diff (sanity check)
+  - [x] Test: CVA wykrywa zmiany które SSIM pomija (np. zmiana koloru bez struktury) — PASS
+  - [x] Statystyki spójne z NDVI diff (sanity check) — PASS
+  - 19/19 testów PASS — commit `ad4c1b4`
 
 **🏁 Sprint 4 complete when:** T4.1–T4.5 all ✓. Commit: `feat(S4): change detection pipeline (SSIM + NDVI + CVA)`
 
