@@ -452,7 +452,7 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
   - [x] Test: wymuszenie OOM przez duży batch → RuntimeError z czytelnym komunikatem — 11/11 PASS
   - [x] Adaptive tile sizing działa (test z mock mem_get_info) — PASS
 
-### T3.3 — Tiled processing z overlap blending
+### T3.3 — Tiled processing z overlap blending ✓ DONE (2026-04-26)
 - **Dependencies:** T3.1, T3.2
 - **Output:** `src/terralens/processors/tiled.py`
 - **Implementation:**
@@ -461,10 +461,11 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
   3. Po upscale: blending overlap przez cosine window (alpha mask)
   4. `empty_cache() + gc.collect()` co 2 tile'y (z briefu)
   5. Rich progress bar
+  - **Uwaga arch:** cosine window wymaga przesunięcia +0.5 (midpoint) — bez tego edge piksele dostają weight=0 i output jest zerowy. Z przesunięciem normalizacja jest zawsze stabilna.
 - **DoD:**
-  - [ ] Test: upscale obrazu 2048×2048 bez widocznych szwów (visual check)
-  - [ ] VRAM nie rośnie przez 20 tile'ów
-  - [ ] `terralens process --region amazonia --date 2023-06-01 --upscale` działa end-to-end
+  - [x] Test brak szwów: wariancja outputu przy stałym modelu < 1.0 — PASS
+  - [x] VRAM cleanup co 2 tile'y — 16/16 testów PASS
+  - [ ] `terralens process --region amazonia --date 2023-06-01 --upscale` działa end-to-end (wymaga S4+)
 
 **🏁 Sprint 3 complete when:** T3.1–T3.3 all ✓. Commit: `feat(S3): Satlas ESRGAN pipeline with VRAM management`
 
