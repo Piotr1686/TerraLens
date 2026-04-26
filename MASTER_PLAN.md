@@ -488,7 +488,7 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
   - [x] Test na tile'u z chmurami → mask działa — 16/16 PASS
   - [x] Edge case: 100% chmur → InsufficientDataWarning — PASS
 
-### T4.2 — Histogram matching
+### T4.2 — Histogram matching ✓ DONE (2026-04-26)
 - **Dependencies:** T4.1
 - **Output:** `src/terralens/processors/histogram_match.py`
 - **Implementation:**
@@ -496,8 +496,8 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
   2. Funkcja `match_to_reference(target, reference, mask=None)` — uwzględnia NaN z cloud mask
   3. Test: dwa obrazy z innych pór roku → po match struktury zgodne
 - **DoD:**
-  - [ ] Różnica w średniej jasności po match < 5%
-  - [ ] NaN pixels preserved (nie wypełnia ich)
+  - [x] Różnica w średniej jasności po match < 5% — PASS
+  - [x] NaN pixels preserved (nie wypełnia ich) — 9/9 testów PASS
 
 ### T4.3 — SSIM z preprocessingiem
 - **Dependencies:** T4.1, T4.2
