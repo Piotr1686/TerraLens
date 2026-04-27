@@ -158,10 +158,22 @@ def export(
         f"[cyan]Źródło:[/cyan] {tile_dir}"
     )
 
+    from terralens.export.manifest import generate_manifest, save_manifest
+
     try:
         result = build_pmtiles(tile_dir, output_path, metadata)
         size_mb = result.stat().st_size / 1_048_576
         console.print(f"[green]PMTiles zapisano:[/green] {result} ({size_mb:.1f} MB)")
+
+        manifest = generate_manifest(
+            regions=list(REGIONS),
+            export_dir=Path(output),
+            db_path=cfg.cache_db,
+            processed_dir=cfg.data_dir / "processed",
+        )
+        manifest_path = Path(output) / "manifest.json"
+        save_manifest(manifest, manifest_path)
+        console.print(f"[green]Manifest zapisano:[/green] {manifest_path}")
         console.print(f"[cyan]Sprawdź:[/cyan] pmtiles show {result}")
     except ValueError as exc:
         console.print(f"[red]Błąd:[/red] {exc}")

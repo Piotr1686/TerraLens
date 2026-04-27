@@ -569,32 +569,23 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
   - [x] PMTiles ma magic bytes `PMTiles` + poprawne bounds w nagłówku
   - 22/22 testów PASS — commit `feat(T5.1)`
 
-### T5.2 — Manifest JSON z wersjonowaniem
+### T5.2 — Manifest JSON z wersjonowaniem ✓ DONE (2026-04-27)
 - **Dependencies:** T5.1
 - **Output:** `src/terralens/export/manifest.py` + `data/export/manifest.json`
 - **Implementation:**
-  1. Struktura manifest:
-     ```json
-     {
-       "version": "1.0",
-       "generated": "2026-04-20T12:00:00Z",
-       "regions": {
-         "amazonia": {
-           "latest": "amazonia_v20260420_120000.pmtiles",
-           "timeline": [...],
-           "changes": {...},
-           "tour": {...}
-         }
-       }
-     }
-     ```
-  2. Timeline: lista dat z cloud cover % (z cache.db)
-  3. Changes: summary SSIM/NDVI/CVA per date
-  4. Tour: camera path dla Guided Tour (z briefu)
+  1. `list_pmtiles(export_dir, region)` → posortowane nazwy plików .pmtiles
+  2. `get_timeline(db_path, layer)` → DISTINCT dates z cache.db (cloud_cover=None placeholder)
+  3. `get_changes(processed_dir, region)` → wczytuje data/processed/{region}/changes.json
+  4. `TOUR_PATHS` — hardcoded camera paths (lat/lon/altitude/duration_s/label) per region
+  5. `generate_manifest(regions, export_dir, db_path, processed_dir)` → słownik z latest/all_versions/timeline/changes/tour
+  6. `validate_manifest(manifest)` → jsonschema 4.26 (MANIFEST_SCHEMA)
+  7. `save_manifest(manifest, output_path)` → walidacja + JSON UTF-8
+  8. CLI `export` wywołuje generate_manifest + save_manifest po build_pmtiles
 - **DoD:**
-  - [ ] Manifest walidowany JSON schemą
-  - [ ] Stare wersje PMTiles zachowane (nie usuwane)
-  - [ ] `terralens export --region amazonia` re-run → nowy timestamp, nowe latest
+  - [x] Manifest walidowany JSON schemą (jsonschema 4.26)
+  - [x] Stare wersje PMTiles zachowane (`all_versions` lista)
+  - [x] re-run → nowy timestamp, nowe `latest`
+  - 35/35 testów PASS — commit `feat(T5.2)`
 
 ### T5.3 — Deploy do Cloudflare R2
 - **Dependencies:** T5.2, T0.5 (credentials R2 z `.env`)
