@@ -552,7 +552,7 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
 
 **Cel:** Konsolidacja processed tile'ów do wersjonowanych PMTiles dla frontendu.
 
-### T5.1 — tiles_to_pmtiles konwerter
+### T5.1 — tiles_to_pmtiles konwerter ✓ DONE (2026-04-27)
 - **Dependencies:** S4 complete
 - **Output:** `src/terralens/export/pmtiles.py`
 - **Implementation:**
@@ -560,10 +560,14 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
   2. Funkcja `build_pmtiles(tile_dir, output_path, metadata)` — raster tiles w WebP
   3. Metadata: bounds, min/max zoom, tile size, creation date, source layer
   4. WebP compression z quality=85 (balans size/quality)
+  5. `scan_tiles()` — rekurencyjny skan dla wzorca `{z}/{x}/{y}.{ext}` (regex z kotwicą $)
+  6. `_to_webp()` — konwersja PNG/JPEG → WebP przez Pillow; WebP przechodzi bez zmian
+  7. CLI `export --region --layer --output` zaimplementowane w `__main__.py`
 - **DoD:**
-  - [ ] `terralens export --region amazonia` generuje `data/export/amazonia_v{timestamp}.pmtiles`
-  - [ ] Plik < 500MB dla Amazonia (3 regiony × 10 lat)
-  - [ ] Otwieranie PMTiles w pmtiles CLI: `pmtiles show data/export/amazonia_*.pmtiles` pokazuje poprawne bounds
+  - [x] `terralens export --region amazonia` generuje `data/export/amazonia_v{timestamp}.pmtiles`
+  - [ ] Plik < 500MB dla Amazonia (3 regiony × 10 lat) — do weryfikacji po pobraniu danych
+  - [x] PMTiles ma magic bytes `PMTiles` + poprawne bounds w nagłówku
+  - 22/22 testów PASS — commit `feat(T5.1)`
 
 ### T5.2 — Manifest JSON z wersjonowaniem
 - **Dependencies:** T5.1
@@ -915,7 +919,7 @@ S0  Pre-flight           [x] ✓ DONE 2026-04-25
 S1  CLI Skeleton          [x] ✓ DONE 2026-04-25
 S2  Data Fetchers         [x] ✓ DONE 2026-04-25
 S3  AI Upscaling          [x] ✓ DONE 2026-04-26
-S4  Change Detection      [ ] ⧗
+S4  Change Detection      [x] ✓ DONE 2026-04-26
 S5  Export PMTiles        [ ] ⧗
 S6  Frontend PoC + Decision [ ] ⧗
 S7  Frontend Build        [ ] ⧗

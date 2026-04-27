@@ -2,6 +2,7 @@
 
 import signal
 from datetime import date
+from pathlib import Path
 
 import typer
 from rich.console import Console
@@ -118,11 +119,53 @@ def process(
 
 @app.command()
 def export(
-    region: str = typer.Option("amazonia", help="Region do eksportu."),
+    region: str = typer.Option("amazonia", help="Region (amazonia/dubai/arctic)."),
     output: str = typer.Option("data/export", help="Katalog wyjściowy PMTiles."),
+    layer: str = typer.Option("HLS_RGB", help="Warstwa źródłowa (HLS_RGB/MODIS_NDVI)."),
 ) -> None:
-    """Eksportuje przetworzone dane do formatu PMTiles."""
-    console.print("[yellow]Not implemented yet[/yellow]")
+    """Eksportuje pobrane tile'y do pliku PMTiles (WebP, quality=85)."""
+    from datetime import datetime, timezone
+
+    from terralens.config import get_config
+    from terralens.export.pmtiles import build_pmtiles
+    from terralens.fetchers.regions import REGIONS
+
+    cfg = get_config()
+
+    if region not in REGIONS:
+        console.print(f"[red]Nieznany region:[/red] {region!r}. Dostępne: {list(REGIONS)}")
+        raise typer.Exit(1)
+
+    tile_dir = cfg.data_dir / "tiles" / layer
+    if not tile_dir.exists():
+        console.print(f"[red]Brak tile'ów w:[/red] {tile_dir} (uruchom najpierw: terralens fetch)")
+        raise typer.Exit(1)
+
+    bounds = REGIONS[region]
+    timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
+    output_path = Path(output) / f"{region}_v{timestamp}.pmtiles"
+
+    metadata = {
+        "bounds": bounds,
+        "source_layer": layer,
+        "region": region,
+        "tile_size": cfg.tile_size,
+        "creation_date": datetime.now(tz=timezone.utc).isoformat(),
+    }
+
+    console.print(
+        f"[cyan]Eksport:[/cyan] {region} | [cyan]Warstwa:[/cyan] {layer} | "
+        f"[cyan]Źródło:[/cyan] {tile_dir}"
+    )
+
+    try:
+        result = build_pmtiles(tile_dir, output_path, metadata)
+        size_mb = result.stat().st_size / 1_048_576
+        console.print(f"[green]PMTiles zapisano:[/green] {result} ({size_mb:.1f} MB)")
+        console.print(f"[cyan]Sprawdź:[/cyan] pmtiles show {result}")
+    except ValueError as exc:
+        console.print(f"[red]Błąd:[/red] {exc}")
+        raise typer.Exit(1)
 
 
 @app.command()
