@@ -182,10 +182,65 @@ def export(
 
 @app.command()
 def deploy(
-    dry_run: bool = typer.Option(False, help="Symulacja bez uploadu do R2."),
+    region: str = typer.Option("amazonia", help="Region (amazonia/dubai/arctic)."),
+    export_dir: str = typer.Option("data/export", help="Katalog z plikami PMTiles."),
+    dry_run: bool = typer.Option(False, help="Symulacja bez uploadu do HF."),
 ) -> None:
-    """Wgrywa PMTiles na Cloudflare R2 i aktualizuje manifest.json."""
-    console.print("[yellow]Not implemented yet[/yellow]")
+    """Wgrywa PMTiles + manifest.json na Hugging Face Datasets (CDN)."""
+    from terralens.export.deploy import _load_hf_config, collect_deploy_files, deploy_files
+
+    try:
+        token, repo_id, public_url_base = _load_hf_config()
+    except OSError as exc:
+        console.print(f"[red]Błąd konfiguracji:[/red] {exc}")
+        console.print("Dodaj HF_TOKEN i HF_REPO_ID do pliku .env")
+        raise typer.Exit(1)
+
+    files = collect_deploy_files(Path(export_dir), region)
+    if not files:
+        console.print(f"[yellow]Brak plików do deploy w:[/yellow] {export_dir}")
+        raise typer.Exit(1)
+
+    console.print(
+        f"[cyan]Deploy:[/cyan] {region} → [cyan]{repo_id}[/cyan]"
+        + (" [yellow](dry-run)[/yellow]" if dry_run else "")
+    )
+    for f in files:
+        console.print(f"  • {f.name}")
+
+    uploaded: list[str] = []
+
+    with Progress(
+        SpinnerColumn(),
+        "[progress.description]{task.description}",
+        BarColumn(),
+        MofNCompleteColumn(),
+        console=console,
+        transient=False,
+    ) as progress:
+        task = progress.add_task("Uploading..." if not dry_run else "Dry-run...", total=len(files))
+
+        def _tick(filename: str) -> None:
+            uploaded.append(filename)
+            progress.advance(task)
+
+        result = deploy_files(
+            files,
+            token=token,
+            repo_id=repo_id,
+            public_url_base=public_url_base,
+            dry_run=dry_run,
+            on_progress=_tick,
+        )
+
+    console.print(
+        f"[green]{'Dry-run' if dry_run else 'Upload'} zakończony:[/green] {len(result)} plików"
+    )
+    for filename, url in result.items():
+        console.print(f"  [cyan]{url}[/cyan]")
+
+    if not dry_run:
+        console.print(f"\n[green]Manifest publiczny:[/green] {public_url_base}/manifest.json")
 
 
 if __name__ == "__main__":
