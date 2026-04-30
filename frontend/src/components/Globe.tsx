@@ -3,7 +3,7 @@ import DeckGL from '@deck.gl/react'
 import { TileLayer } from '@deck.gl/geo-layers'
 import { BitmapLayer, ScatterplotLayer, TextLayer } from '@deck.gl/layers'
 import { _GlobeView as GlobeView, FlyToInterpolator } from '@deck.gl/core'
-import type { MapViewState, PickingInfo } from '@deck.gl/core'
+import type { MapViewState, PickingInfo, Layer } from '@deck.gl/core'
 
 const HF_MANIFEST_URL =
   'https://huggingface.co/datasets/Piotr1686/terralens-data/resolve/main/manifest.json'
@@ -32,11 +32,12 @@ const REGIONS: Region[] = [
 
 interface Props {
   tileUrl?: string
+  extraLayers?: Layer[]
   onRegionSelect?: (regionId: string) => void
   onManifestLoaded?: (manifest: unknown) => void
 }
 
-export function Globe({ tileUrl = BLUE_MARBLE, onRegionSelect, onManifestLoaded }: Props) {
+export function Globe({ tileUrl = BLUE_MARBLE, extraLayers = [], onRegionSelect, onManifestLoaded }: Props) {
   const [viewState, setViewState] = useState<MapViewState>(INITIAL_VIEW)
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
   const [manifestError, setManifestError] = useState(false)
@@ -152,6 +153,7 @@ export function Globe({ tileUrl = BLUE_MARBLE, onRegionSelect, onManifestLoaded 
   const layers = [
     ...(prevUrl ? [makeTileLayer(prevUrl, 'tile-prev', 1 - fadeOpacity)] : []),
     makeTileLayer(currentUrl, 'tile-current', fadeOpacity),
+    ...extraLayers,
     markerLayer,
     labelLayer,
   ]
