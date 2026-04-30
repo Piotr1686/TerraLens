@@ -1,9 +1,9 @@
-import { DeckGlobePoC } from '@/poc/DeckGlobePoC'
+import { Globe } from '@/components/Globe'
 
 function App() {
   return (
     <div className="h-full w-full">
-      <DeckGlobePoC />
+      <Globe onRegionSelect={(id) => console.log('region:', id)} />
     </div>
   )
 }
