@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import DeckGL from '@deck.gl/react'
 import { TileLayer } from '@deck.gl/geo-layers'
 import { BitmapLayer, ScatterplotLayer, TextLayer } from '@deck.gl/layers'
@@ -8,13 +8,13 @@ import type { MapViewState, PickingInfo } from '@deck.gl/core'
 const HF_MANIFEST_URL =
   'https://huggingface.co/datasets/Piotr1686/terralens-data/resolve/main/manifest.json'
 
-const GIBS_BLUE_MARBLE =
+const BLUE_MARBLE =
   'https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/' +
   'BlueMarble_NextGeneration/default/500m/{z}/{y}/{x}.jpeg'
 
 const GLOBE = new GlobeView({ id: 'globe', nearZMultiplier: 0.1 })
-
 const INITIAL_VIEW: MapViewState = { longitude: 0, latitude: 20, zoom: 1.0 }
+const FADE_DURATION_MS = 600
 
 export interface Region {
   id: string
@@ -31,19 +31,49 @@ const REGIONS: Region[] = [
 ]
 
 interface Props {
+  tileUrl?: string
   onRegionSelect?: (regionId: string) => void
+  onManifestLoaded?: (manifest: unknown) => void
 }
 
-export function Globe({ onRegionSelect }: Props) {
+export function Globe({ tileUrl = BLUE_MARBLE, onRegionSelect, onManifestLoaded }: Props) {
   const [viewState, setViewState] = useState<MapViewState>(INITIAL_VIEW)
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
   const [manifestError, setManifestError] = useState(false)
 
+  // Cross-fade state
+  const [currentUrl, setCurrentUrl] = useState(tileUrl)
+  const [prevUrl, setPrevUrl] = useState<string | null>(null)
+  const [fadeOpacity, setFadeOpacity] = useState(1)
+  const fadeRafRef = useRef<number | null>(null)
+  const fadeStartRef = useRef<number>(0)
+
   useEffect(() => {
     fetch(HF_MANIFEST_URL)
       .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() })
+      .then((m) => onManifestLoaded?.(m))
       .catch(() => setManifestError(true))
-  }, [])
+  }, [onManifestLoaded])
+
+  // Cross-fade gdy tileUrl się zmienia
+  useEffect(() => {
+    if (tileUrl === currentUrl) return
+    if (fadeRafRef.current) cancelAnimationFrame(fadeRafRef.current)
+
+    setPrevUrl(currentUrl)
+    setCurrentUrl(tileUrl)
+    setFadeOpacity(0)
+    fadeStartRef.current = performance.now()
+
+    const animate = (now: number) => {
+      const progress = Math.min((now - fadeStartRef.current) / FADE_DURATION_MS, 1)
+      setFadeOpacity(progress)
+      if (progress < 1) fadeRafRef.current = requestAnimationFrame(animate)
+      else setPrevUrl(null)
+    }
+    fadeRafRef.current = requestAnimationFrame(animate)
+    return () => { if (fadeRafRef.current) cancelAnimationFrame(fadeRafRef.current) }
+  }, [tileUrl]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const flyToRegion = useCallback(
     (region: Region) => {
@@ -69,22 +99,24 @@ export function Globe({ onRegionSelect }: Props) {
     })
   }, [])
 
-  const tileLayer = new TileLayer({
-    id: 'blue-marble',
-    data: GIBS_BLUE_MARBLE,
-    minZoom: 0,
-    maxZoom: 7,
-    tileSize: 256,
-    extent: [-180, -90, 180, 90],
-    renderSubLayers: (props) => {
-      const { boundingBox } = props.tile
-      return new BitmapLayer(props, {
-        data: undefined,
-        image: props.data,
-        bounds: [boundingBox[0][0], boundingBox[0][1], boundingBox[1][0], boundingBox[1][1]],
-      })
-    },
-  })
+  const makeTileLayer = (url: string, id: string, opacity: number) =>
+    new TileLayer({
+      id,
+      data: url,
+      minZoom: 0,
+      maxZoom: 7,
+      tileSize: 256,
+      extent: [-180, -90, 180, 90],
+      opacity,
+      renderSubLayers: (props) => {
+        const { boundingBox } = props.tile
+        return new BitmapLayer(props, {
+          data: undefined,
+          image: props.data,
+          bounds: [boundingBox[0][0], boundingBox[0][1], boundingBox[1][0], boundingBox[1][1]],
+        })
+      },
+    })
 
   const markerLayer = new ScatterplotLayer<Region>({
     id: 'region-markers',
@@ -117,6 +149,13 @@ export function Globe({ onRegionSelect }: Props) {
     fontSettings: { sdf: true },
   })
 
+  const layers = [
+    ...(prevUrl ? [makeTileLayer(prevUrl, 'tile-prev', 1 - fadeOpacity)] : []),
+    makeTileLayer(currentUrl, 'tile-current', fadeOpacity),
+    markerLayer,
+    labelLayer,
+  ]
+
   return (
     <div className="relative h-full w-full bg-black">
       <DeckGL
@@ -124,11 +163,10 @@ export function Globe({ onRegionSelect }: Props) {
         viewState={viewState}
         onViewStateChange={({ viewState: vs }) => setViewState(vs as MapViewState)}
         controller
-        layers={[tileLayer, markerLayer, labelLayer]}
+        layers={layers}
         getCursor={({ isHovering }) => (isHovering ? 'pointer' : 'grab')}
       />
 
-      {/* Przyciski regionów */}
       <div className="absolute bottom-6 left-1/2 flex -translate-x-1/2 gap-2">
         {REGIONS.map((r) => (
           <button
@@ -153,7 +191,6 @@ export function Globe({ onRegionSelect }: Props) {
         )}
       </div>
 
-      {/* Status manifest */}
       {manifestError && (
         <div className="absolute right-4 top-4 rounded bg-red-900/60 px-3 py-1 text-xs text-red-200 backdrop-blur">
           manifest niedostępny — tryb demo
