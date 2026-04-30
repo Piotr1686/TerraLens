@@ -24,6 +24,14 @@
 - **Cache:** `src/terralens/db/queries.py` — czyste SQL (bez ORM), WAL mode, UPSERT `ON CONFLICT`, TTL przez `expires_at` ISO8601 UTC. `cleanup_expired()` zwraca liczbę usuniętych wierszy.
 - **Uzasadnienie:** Brief v3.2 wymaga SQLite bez ORM dla prostoty. Typer wybrany nad Click ze względu na automatyczne `--help` z type hints.
 
+### [2026-04-30] S6 DONE — Frontend engine: Deck.gl GlobeView (ADR-001)
+
+- **Decyzja:** Deck.gl `_GlobeView` jako silnik 3D globu. R3F PoC pominięty — Deck.gl spełnia wymagania MVP.
+- **Uzasadnienie:** TileLayer + PMTiles natywne, EPSG:4326 działa z GIBS, performance OK, zero custom shaderów na start.
+- **Tour gotcha:** `FlyToInterpolator` nie wyzwalał `onTransitionEnd` reliably → zastąpiony timer-based (setTimeout per stop). Cinematic quality oceniana w T7.5.
+- **Blue Marble source:** `BlueMarble_NextGeneration` — brak daty w URL (time-invariant), ext `.jpeg`, zoom 0–7. Poprawny URL: `.../BlueMarble_NextGeneration/default/500m/{z}/{y}/{x}.jpeg`
+- **ADR:** `docs/ADR-001-frontend-engine.md`
+
 ### [2026-04-28] T6.1 DONE — Frontend scaffold: Tailwind v4 + shadcn/ui + TS alias gotcha
 
 - **Tailwind v4:** Brak `tailwind.config.js` — tylko `@import "tailwindcss"` w CSS + plugin `@tailwindcss/vite` w `vite.config.ts`. Nie używaj starego `tailwind.config.ts`.

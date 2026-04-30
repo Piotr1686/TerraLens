@@ -665,7 +665,7 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
   - [ ] FPS porównywalne z Deck.gl
   - [ ] Subjective cinematic quality score: __/10
 
-### T6.4 — DECYZJA: Wybór silnika 🔴 BLOKUJĄCY
+### T6.4 — DECYZJA: Wybór silnika ✓ DONE (2026-04-30)
 - **Dependencies:** T6.2 (+ opcjonalnie T6.3)
 - **Output:** Decision record w `docs/ADR-001-frontend-engine.md`
 - **Implementation:**
@@ -682,9 +682,9 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
   - Decyzja
   - Konsekwencje (co trzeba zmienić w briefie jeśli wybór != plan)
 - **DoD:**
-  - [ ] ADR-001 commitowalny
-  - [ ] MEMORY.md updated: "Architektura: Frontend engine = [wybór] (ADR-001)"
-  - [ ] Drugi PoC usunięty z kodu (tylko wybrany zostaje)
+  - [x] ADR-001 commitowalny — `docs/ADR-001-frontend-engine.md`
+  - [x] MEMORY.md updated: "Architektura: Frontend engine = Deck.gl GlobeView (ADR-001)"
+  - [x] R3F PoC pominięty (nie było potrzeby)
 
 **🏁 Sprint 6 complete when:** T6.1–T6.4 all ✓. Commit: `feat(S6): frontend scaffold + engine decision ([wybór])`
 
@@ -911,8 +911,8 @@ S1  CLI Skeleton          [x] ✓ DONE 2026-04-25
 S2  Data Fetchers         [x] ✓ DONE 2026-04-25
 S3  AI Upscaling          [x] ✓ DONE 2026-04-26
 S4  Change Detection      [x] ✓ DONE 2026-04-26
-S5  Export PMTiles        [ ] ⧗
-S6  Frontend PoC + Decision [ ] ⧗
+S5  Export PMTiles        [x] ✓ DONE 2026-04-28
+S6  Frontend PoC + Decision [x] ✓ DONE 2026-04-30
 S7  Frontend Build        [ ] ⧗
 S8  10-Second Hook Polish [ ] ⧗
 S9  Deploy Production     [ ] ⧗
