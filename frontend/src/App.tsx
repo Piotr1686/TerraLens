@@ -1,9 +1,12 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Globe } from '@/components/Globe'
 import { Timeline } from '@/components/Timeline'
 import { HeatmapControls } from '@/components/HeatmapControls'
+import { StatsPanel } from '@/components/StatsPanel'
+import { GuidedTour } from '@/components/GuidedTour'
 import { useTimeline } from '@/hooks/useTimeline'
 import { useHeatmapLayer } from '@/hooks/useHeatmapLayer'
+import { useTour } from '@/hooks/useTour'
 import type { HeatmapMetric } from '@/hooks/useHeatmapLayer'
 
 function App() {
@@ -12,10 +15,27 @@ function App() {
   const [heatmapMetric, setHeatmapMetric] = useState<HeatmapMetric>('ndvi')
   const [heatmapOpacity, setHeatmapOpacity] = useState(0.6)
 
+  const { isRunning, isComplete, stepIndex, steps, currentStep, stop, replay } = useTour()
+
+  // Synchronizacja selectedRegion z aktywnym krokiem trasy
+  useEffect(() => {
+    if (!isRunning) return
+    setSelectedRegion(currentStep?.regionId ?? null)
+  }, [currentStep, isRunning])
+
   const handleManifestLoaded = useCallback((manifest: unknown) => {
     const m = manifest as { timeline?: string[] }
     if (Array.isArray(m?.timeline)) setManifestTimeline(m.timeline)
   }, [])
+
+  // Kliknięcie markera przez usera przerywa tour
+  const handleRegionSelect = useCallback(
+    (regionId: string | null) => {
+      if (isRunning) stop()
+      setSelectedRegion(regionId)
+    },
+    [isRunning, stop],
+  )
 
   const { dates, dateIndex, currentDate, tileUrl, setDateIndex } = useTimeline(manifestTimeline)
 
@@ -26,13 +46,25 @@ function App() {
     currentDate,
   })
 
+  // flyTarget: gdy tour działa — steruj globem krokiem; gdy nie — undefined (user kontroluje)
+  const flyTarget = isRunning ? (currentStep?.regionId ?? null) : undefined
+
   return (
     <div className="h-full w-full">
       <Globe
         tileUrl={tileUrl}
         extraLayers={heatmapLayer ? [heatmapLayer] : []}
-        onRegionSelect={setSelectedRegion}
+        flyTarget={flyTarget}
+        onRegionSelect={handleRegionSelect}
         onManifestLoaded={handleManifestLoaded}
+      />
+      <GuidedTour
+        isRunning={isRunning}
+        isComplete={isComplete}
+        stepIndex={stepIndex}
+        currentStep={currentStep}
+        onStop={stop}
+        onReplay={replay}
       />
       <Timeline dates={dates} dateIndex={dateIndex} onDateChange={setDateIndex} />
       <HeatmapControls
@@ -41,11 +73,7 @@ function App() {
         onMetricChange={setHeatmapMetric}
         onOpacityChange={setHeatmapOpacity}
       />
-      {selectedRegion && (
-        <div className="absolute left-4 top-4 rounded bg-black/50 px-3 py-1 text-sm text-white backdrop-blur">
-          {selectedRegion}
-        </div>
-      )}
+      <StatsPanel regionId={selectedRegion} dateIndex={dateIndex} />
     </div>
   )
 }

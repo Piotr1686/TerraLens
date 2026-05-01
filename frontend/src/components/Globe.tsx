@@ -33,11 +33,12 @@ const REGIONS: Region[] = [
 interface Props {
   tileUrl?: string
   extraLayers?: Layer[]
-  onRegionSelect?: (regionId: string) => void
+  flyTarget?: string | null   // string → leć do regionu, null → reset do widoku globalnego
+  onRegionSelect?: (regionId: string | null) => void
   onManifestLoaded?: (manifest: unknown) => void
 }
 
-export function Globe({ tileUrl = BLUE_MARBLE, extraLayers = [], onRegionSelect, onManifestLoaded }: Props) {
+export function Globe({ tileUrl = BLUE_MARBLE, extraLayers = [], flyTarget, onRegionSelect, onManifestLoaded }: Props) {
   const [viewState, setViewState] = useState<MapViewState>(INITIAL_VIEW)
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
   const [manifestError, setManifestError] = useState(false)
@@ -55,6 +56,18 @@ export function Globe({ tileUrl = BLUE_MARBLE, extraLayers = [], onRegionSelect,
       .then((m) => onManifestLoaded?.(m))
       .catch(() => setManifestError(true))
   }, [onManifestLoaded])
+
+  // Zewnętrzne sterowanie lotem (tour)
+  useEffect(() => {
+    if (flyTarget === undefined) return
+    if (flyTarget === null) {
+      handleReset()
+      onRegionSelect?.(null)
+      return
+    }
+    const region = REGIONS.find((r) => r.id === flyTarget)
+    if (region) flyToRegion(region)
+  }, [flyTarget]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cross-fade gdy tileUrl się zmienia
   useEffect(() => {
@@ -98,7 +111,7 @@ export function Globe({ tileUrl = BLUE_MARBLE, extraLayers = [], onRegionSelect,
       transitionDuration: 1500,
       transitionInterpolator: new FlyToInterpolator({ speed: 1.2 }),
     })
-  }, [])
+  }, []) // onRegionSelect(null) obsługuje wywołujący (flyTarget useEffect lub przycisk)
 
   const makeTileLayer = (url: string, id: string, opacity: number) =>
     new TileLayer({
