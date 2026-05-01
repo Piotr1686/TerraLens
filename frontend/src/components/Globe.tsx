@@ -1,12 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import DeckGL from '@deck.gl/react'
 import { TileLayer } from '@deck.gl/geo-layers'
 import { BitmapLayer, ScatterplotLayer, TextLayer } from '@deck.gl/layers'
 import { _GlobeView as GlobeView, FlyToInterpolator } from '@deck.gl/core'
 import type { MapViewState, PickingInfo, Layer } from '@deck.gl/core'
-
-const HF_MANIFEST_URL =
-  'https://huggingface.co/datasets/Piotr1686/terralens-data/resolve/main/manifest.json'
 
 const BLUE_MARBLE =
   'https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/' +
@@ -35,13 +32,11 @@ interface Props {
   extraLayers?: Layer[]
   flyTarget?: string | null   // string → leć do regionu, null → reset do widoku globalnego
   onRegionSelect?: (regionId: string | null) => void
-  onManifestLoaded?: (manifest: unknown) => void
 }
 
-export function Globe({ tileUrl = BLUE_MARBLE, extraLayers = [], flyTarget, onRegionSelect, onManifestLoaded }: Props) {
+export function Globe({ tileUrl = BLUE_MARBLE, extraLayers = [], flyTarget, onRegionSelect }: Props) {
   const [viewState, setViewState] = useState<MapViewState>(INITIAL_VIEW)
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
-  const [manifestError, setManifestError] = useState(false)
 
   // Cross-fade state
   const [currentUrl, setCurrentUrl] = useState(tileUrl)
@@ -49,13 +44,6 @@ export function Globe({ tileUrl = BLUE_MARBLE, extraLayers = [], flyTarget, onRe
   const [fadeOpacity, setFadeOpacity] = useState(1)
   const fadeRafRef = useRef<number | null>(null)
   const fadeStartRef = useRef<number>(0)
-
-  useEffect(() => {
-    fetch(HF_MANIFEST_URL)
-      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() })
-      .then((m) => onManifestLoaded?.(m))
-      .catch(() => setManifestError(true))
-  }, [onManifestLoaded])
 
   // Zewnętrzne sterowanie lotem (tour)
   useEffect(() => {
@@ -206,11 +194,6 @@ export function Globe({ tileUrl = BLUE_MARBLE, extraLayers = [], flyTarget, onRe
         )}
       </div>
 
-      {manifestError && (
-        <div className="absolute right-4 top-4 rounded bg-red-900/60 px-3 py-1 text-xs text-red-200 backdrop-blur">
-          manifest niedostępny — tryb demo
-        </div>
-      )}
     </div>
   )
 }

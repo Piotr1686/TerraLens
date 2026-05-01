@@ -4,9 +4,11 @@ import { Timeline } from '@/components/Timeline'
 import { HeatmapControls } from '@/components/HeatmapControls'
 import { StatsPanel } from '@/components/StatsPanel'
 import { GuidedTour } from '@/components/GuidedTour'
+import { Preloader } from '@/components/Preloader'
 import { useTimeline } from '@/hooks/useTimeline'
 import { useHeatmapLayer } from '@/hooks/useHeatmapLayer'
 import { useTour } from '@/hooks/useTour'
+import { usePreload } from '@/hooks/usePreload'
 import type { HeatmapMetric } from '@/hooks/useHeatmapLayer'
 
 function App() {
@@ -15,18 +17,23 @@ function App() {
   const [heatmapMetric, setHeatmapMetric] = useState<HeatmapMetric>('ndvi')
   const [heatmapOpacity, setHeatmapOpacity] = useState(0.6)
 
-  const { isRunning, isComplete, stepIndex, steps, currentStep, stop, replay } = useTour()
+  const { progress, label, isReady, manifest, hasPreview } = usePreload()
+
+  // Tour startuje dopiero po zakończeniu preloadera
+  const { isRunning, isComplete, stepIndex, currentStep, stop, replay } = useTour({ enabled: isReady })
+
+  // Manifest z usePreload → timeline
+  useEffect(() => {
+    if (!manifest) return
+    const m = manifest as { timeline?: string[] }
+    if (Array.isArray(m?.timeline)) setManifestTimeline(m.timeline)
+  }, [manifest])
 
   // Synchronizacja selectedRegion z aktywnym krokiem trasy
   useEffect(() => {
     if (!isRunning) return
     setSelectedRegion(currentStep?.regionId ?? null)
   }, [currentStep, isRunning])
-
-  const handleManifestLoaded = useCallback((manifest: unknown) => {
-    const m = manifest as { timeline?: string[] }
-    if (Array.isArray(m?.timeline)) setManifestTimeline(m.timeline)
-  }, [])
 
   // Kliknięcie markera przez usera przerywa tour
   const handleRegionSelect = useCallback(
@@ -46,7 +53,6 @@ function App() {
     currentDate,
   })
 
-  // flyTarget: gdy tour działa — steruj globem krokiem; gdy nie — undefined (user kontroluje)
   const flyTarget = isRunning ? (currentStep?.regionId ?? null) : undefined
 
   return (
@@ -56,7 +62,6 @@ function App() {
         extraLayers={heatmapLayer ? [heatmapLayer] : []}
         flyTarget={flyTarget}
         onRegionSelect={handleRegionSelect}
-        onManifestLoaded={handleManifestLoaded}
       />
       <GuidedTour
         isRunning={isRunning}
@@ -74,6 +79,7 @@ function App() {
         onOpacityChange={setHeatmapOpacity}
       />
       <StatsPanel regionId={selectedRegion} dateIndex={dateIndex} />
+      <Preloader progress={progress} label={label} isReady={isReady} hasPreview={hasPreview} />
     </div>
   )
 }

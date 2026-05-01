@@ -25,7 +25,7 @@ export interface UseTourReturn {
   replay: () => void
 }
 
-export function useTour(): UseTourReturn {
+export function useTour({ enabled = true }: { enabled?: boolean } = {}): UseTourReturn {
   const [isRunning, setIsRunning] = useState(false)
   const [isComplete, setIsComplete] = useState(false)
   const [stepIndex, setStepIndex] = useState(-1)
@@ -75,11 +75,12 @@ export function useTour(): UseTourReturn {
     requestAnimationFrame(() => runStep(0))
   }, [clearTimer, runStep])
 
-  // Automatyczny start przy pierwszym renderze
+  // Start gdy enabled zmieni się na true (po zakończeniu preloadera)
   useEffect(() => {
+    if (!enabled) return
     start()
     return clearTimer
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [enabled]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const currentStep = stepIndex >= 0 ? TOUR_STEPS[stepIndex] : null
 
