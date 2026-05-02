@@ -2,9 +2,9 @@ import { Slider } from '@/components/ui/slider'
 import type { HeatmapMetric } from '@/hooks/useHeatmapLayer'
 
 const METRICS: { id: HeatmapMetric; label: string; desc: string; color: string }[] = [
-  { id: 'ssim', label: 'Zmiany struktury', desc: 'budynki i rzeźba terenu', color: 'bg-blue-500/70 ring-blue-400' },
-  { id: 'ndvi', label: 'Roślinność',       desc: 'lasy, uprawy, zieleń',   color: 'bg-green-500/70 ring-green-400' },
-  { id: 'cva',  label: 'Zmiana koloru',    desc: 'pożary, susze, zalania', color: 'bg-orange-500/70 ring-orange-400' },
+  { id: 'ssim', label: 'SSIM', desc: 'zmiany struktury terenu i budynków', color: 'bg-blue-500/70 ring-blue-400' },
+  { id: 'ndvi', label: 'NDVI', desc: 'indeks roślinności — lasy i uprawy',  color: 'bg-green-500/70 ring-green-400' },
+  { id: 'cva',  label: 'CVA',  desc: 'zmiana koloru — pożary, susze',       color: 'bg-orange-500/70 ring-orange-400' },
 ]
 
 interface Props {
