@@ -9,10 +9,12 @@ import { useTimeline } from '@/hooks/useTimeline'
 import { useHeatmapLayer } from '@/hooks/useHeatmapLayer'
 import { useTour } from '@/hooks/useTour'
 import { usePreload } from '@/hooks/usePreload'
+import { useRevealOpacity } from '@/hooks/useRevealOpacity'
 import type { HeatmapMetric } from '@/hooks/useHeatmapLayer'
 
 function App() {
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
+  const [arrivedRegion, setArrivedRegion] = useState<string | null>(null)
   const [manifestTimeline, setManifestTimeline] = useState<string[] | undefined>()
   const [heatmapMetric, setHeatmapMetric] = useState<HeatmapMetric>('ndvi')
   const [heatmapOpacity, setHeatmapOpacity] = useState(0.6)
@@ -35,6 +37,11 @@ function App() {
     setSelectedRegion(currentStep?.regionId ?? null)
   }, [currentStep, isRunning])
 
+  // Nowy lot (selectedRegion zmienia się) → chowamy heatmapę; pokaże się po arrival
+  useEffect(() => {
+    setArrivedRegion(null)
+  }, [selectedRegion])
+
   // Kliknięcie markera przez usera przerywa tour
   const handleRegionSelect = useCallback(
     (regionId: string | null) => {
@@ -44,12 +51,19 @@ function App() {
     [isRunning, stop],
   )
 
+  // Globe wywołuje po wylądowaniu kamery → trigger dla reveal animacji
+  const handleRegionArrival = useCallback((regionId: string) => {
+    setArrivedRegion(regionId)
+  }, [])
+
+  const revealFraction = useRevealOpacity(arrivedRegion)
+
   const { dates, dateIndex, currentDate, tileUrl, setDateIndex } = useTimeline(manifestTimeline)
 
   const heatmapLayer = useHeatmapLayer({
-    region: selectedRegion,
+    region: arrivedRegion,
     metric: heatmapMetric,
-    opacity: heatmapOpacity,
+    opacity: heatmapOpacity * revealFraction,
     currentDate,
   })
 
@@ -62,6 +76,7 @@ function App() {
         extraLayers={heatmapLayer ? [heatmapLayer] : []}
         flyTarget={flyTarget}
         onRegionSelect={handleRegionSelect}
+        onRegionArrival={handleRegionArrival}
       />
       <GuidedTour
         isRunning={isRunning}

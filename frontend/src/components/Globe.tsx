@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import DeckGL from '@deck.gl/react'
 import { TileLayer } from '@deck.gl/geo-layers'
 import { BitmapLayer, ScatterplotLayer, TextLayer } from '@deck.gl/layers'
-import { _GlobeView as GlobeView, FlyToInterpolator } from '@deck.gl/core'
+import { _GlobeView as GlobeView } from '@deck.gl/core'
 import type { MapViewState, PickingInfo, Layer } from '@deck.gl/core'
+import { useCinematicFlight } from '@/hooks/useCinematicFlight'
 
 const BLUE_MARBLE =
   'https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/' +
@@ -32,18 +33,34 @@ interface Props {
   extraLayers?: Layer[]
   flyTarget?: string | null   // string → leć do regionu, null → reset do widoku globalnego
   onRegionSelect?: (regionId: string | null) => void
+  onRegionArrival?: (regionId: string) => void  // wywoływane po wylądowaniu kamery
 }
 
-export function Globe({ tileUrl = BLUE_MARBLE, extraLayers = [], flyTarget, onRegionSelect }: Props) {
+export function Globe({ tileUrl = BLUE_MARBLE, extraLayers = [], flyTarget, onRegionSelect, onRegionArrival }: Props) {
   const [viewState, setViewState] = useState<MapViewState>(INITIAL_VIEW)
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
 
-  // Cross-fade state
-  const [currentUrl, setCurrentUrl] = useState(tileUrl)
-  const [prevUrl, setPrevUrl] = useState<string | null>(null)
-  const [fadeOpacity, setFadeOpacity] = useState(1)
-  const fadeRafRef = useRef<number | null>(null)
-  const fadeStartRef = useRef<number>(0)
+  const { fly: cinematicFly, cancel: cancelFlight, setPosition: setFlightPos } = useCinematicFlight()
+
+  // flyToRegion i handleReset zadeklarowane PRZED useEffect(flyTarget) który ich używa
+  const flyToRegion = useCallback(
+    (region: Region) => {
+      setSelectedRegion(region.id)
+      cinematicFly(
+        { longitude: region.longitude, latitude: region.latitude, zoom: region.zoom },
+        { duration: 2200 },
+        setViewState,
+        () => onRegionArrival?.(region.id),
+      )
+      onRegionSelect?.(region.id)
+    },
+    [onRegionSelect, onRegionArrival, cinematicFly],
+  )
+
+  const handleReset = useCallback(() => {
+    setSelectedRegion(null)
+    cinematicFly(INITIAL_VIEW, { duration: 1800, zoomDip: 0.8 }, setViewState)
+  }, [cinematicFly])
 
   // Zewnętrzne sterowanie lotem (tour)
   useEffect(() => {
@@ -56,6 +73,13 @@ export function Globe({ tileUrl = BLUE_MARBLE, extraLayers = [], flyTarget, onRe
     const region = REGIONS.find((r) => r.id === flyTarget)
     if (region) flyToRegion(region)
   }, [flyTarget]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Cross-fade state
+  const [currentUrl, setCurrentUrl] = useState(tileUrl)
+  const [prevUrl, setPrevUrl] = useState<string | null>(null)
+  const [fadeOpacity, setFadeOpacity] = useState(1)
+  const fadeRafRef = useRef<number | null>(null)
+  const fadeStartRef = useRef<number>(0)
 
   // Cross-fade gdy tileUrl się zmienia
   useEffect(() => {
@@ -76,30 +100,6 @@ export function Globe({ tileUrl = BLUE_MARBLE, extraLayers = [], flyTarget, onRe
     fadeRafRef.current = requestAnimationFrame(animate)
     return () => { if (fadeRafRef.current) cancelAnimationFrame(fadeRafRef.current) }
   }, [tileUrl]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const flyToRegion = useCallback(
-    (region: Region) => {
-      setSelectedRegion(region.id)
-      setViewState({
-        longitude: region.longitude,
-        latitude: region.latitude,
-        zoom: region.zoom,
-        transitionDuration: 2000,
-        transitionInterpolator: new FlyToInterpolator({ speed: 1.5 }),
-      })
-      onRegionSelect?.(region.id)
-    },
-    [onRegionSelect],
-  )
-
-  const handleReset = useCallback(() => {
-    setSelectedRegion(null)
-    setViewState({
-      ...INITIAL_VIEW,
-      transitionDuration: 1500,
-      transitionInterpolator: new FlyToInterpolator({ speed: 1.2 }),
-    })
-  }, []) // onRegionSelect(null) obsługuje wywołujący (flyTarget useEffect lub przycisk)
 
   const makeTileLayer = (url: string, id: string, opacity: number) =>
     new TileLayer({
@@ -164,7 +164,12 @@ export function Globe({ tileUrl = BLUE_MARBLE, extraLayers = [], flyTarget, onRe
       <DeckGL
         views={GLOBE}
         viewState={viewState}
-        onViewStateChange={({ viewState: vs }) => setViewState(vs as MapViewState)}
+        onViewStateChange={({ viewState: vs, interactionState }) => {
+          const s = interactionState as { isDragging?: boolean; isZooming?: boolean; isPanning?: boolean; isRotating?: boolean }
+          if (s.isDragging || s.isZooming || s.isPanning || s.isRotating) cancelFlight()
+          setFlightPos(vs as MapViewState)
+          setViewState(vs as MapViewState)
+        }}
         controller
         layers={layers}
         getCursor={({ isHovering }) => (isHovering ? 'pointer' : 'grab')}

@@ -6,7 +6,7 @@ export interface TourStep {
   label: string
 }
 
-// Stała sekwencja trasy — T8.2 rozbuduje o krzywe Beziera
+// Stała sekwencja trasy — Bezier camera path w useCinematicFlight.ts
 export const TOUR_STEPS: TourStep[] = [
   { regionId: null,       duration: 2000, label: 'Widok globalny' },
   { regionId: 'amazonia', duration: 4000, label: 'Amazonia'       },
