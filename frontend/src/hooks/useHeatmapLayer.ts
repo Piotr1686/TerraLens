@@ -18,10 +18,14 @@ const GIBS_CVA  = `${GIBS_BASE}/MODIS_Terra_CorrectedReflectance_Bands721/defaul
 
 const DEMO_LAYERS: Record<HeatmapMetric, string> = { ssim: GIBS_SSIM, ndvi: GIBS_NDVI, cva: GIBS_CVA }
 
+// Stała data dla demo — GIBS gwarantuje dane dla tej daty; nie używamy currentDate
+// bo daty z 2025/2026 mogą nie mieć kafelków NDVI/false-color w GIBS
+const DEMO_DATE = '2023-07-01'
+
 const HF_BASE = 'https://huggingface.co/datasets/Piotr1686/terralens-data/resolve/main'
 
-function demoUrl(metric: HeatmapMetric, date: string): string {
-  return DEMO_LAYERS[metric].replace('{date}', date)
+function demoUrl(metric: HeatmapMetric): string {
+  return DEMO_LAYERS[metric].replace('{date}', DEMO_DATE)
 }
 
 function productionUrl(region: string, metric: HeatmapMetric): string {
@@ -32,7 +36,6 @@ export interface HeatmapLayerConfig {
   region: string | null
   metric: HeatmapMetric
   opacity: number
-  currentDate: string
   pmtilesAvailable?: boolean
 }
 
@@ -40,7 +43,6 @@ export function useHeatmapLayer({
   region,
   metric,
   opacity,
-  currentDate,
   pmtilesAvailable = false,
 }: HeatmapLayerConfig): Layer | null {
   return useMemo(() => {
@@ -48,7 +50,7 @@ export function useHeatmapLayer({
 
     const tileUrl = pmtilesAvailable
       ? productionUrl(region, metric)
-      : demoUrl(metric, currentDate)
+      : demoUrl(metric)
 
     return new TileLayer({
       id: `heatmap-${metric}`,
@@ -67,5 +69,5 @@ export function useHeatmapLayer({
         })
       },
     })
-  }, [region, metric, opacity, currentDate, pmtilesAvailable])
+  }, [region, metric, opacity, pmtilesAvailable])
 }

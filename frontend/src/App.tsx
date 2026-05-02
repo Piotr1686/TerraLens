@@ -62,13 +62,12 @@ function App() {
 
   const revealFraction = useRevealOpacity(arrivedRegion, 600, fps)
 
-  const { dates, dateIndex, currentDate, tileUrl, setDateIndex } = useTimeline(manifestTimeline)
+  const { dates, dateIndex, tileUrl, setDateIndex } = useTimeline(manifestTimeline)
 
   const heatmapLayer = useHeatmapLayer({
     region: arrivedRegion,
     metric: heatmapMetric,
     opacity: heatmapOpacity * revealFraction,
-    currentDate,
   })
 
   const flyTarget = isRunning ? (currentStep?.regionId ?? null) : undefined
@@ -92,12 +91,14 @@ function App() {
         onReplay={replay}
       />
       <Timeline dates={dates} dateIndex={dateIndex} onDateChange={setDateIndex} />
-      <HeatmapControls
-        metric={heatmapMetric}
-        opacity={heatmapOpacity}
-        onMetricChange={setHeatmapMetric}
-        onOpacityChange={setHeatmapOpacity}
-      />
+      {arrivedRegion && (
+        <HeatmapControls
+          metric={heatmapMetric}
+          opacity={heatmapOpacity}
+          onMetricChange={setHeatmapMetric}
+          onOpacityChange={setHeatmapOpacity}
+        />
+      )}
       <StatsPanel regionId={selectedRegion} dateIndex={dateIndex} />
       <Preloader progress={progress} label={label} isReady={isReady} hasPreview={hasPreview} />
     </div>
