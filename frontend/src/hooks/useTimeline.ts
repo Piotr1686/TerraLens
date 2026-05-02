@@ -4,15 +4,13 @@ const HLS_RGB_URL =
   'https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/' +
   'MODIS_Terra_CorrectedReflectance_TrueColor/default/{date}/250m/{z}/{y}/{x}.jpg'
 
-const BLUE_MARBLE_URL =
-  'https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/' +
-  'BlueMarble_NextGeneration/default/500m/{z}/{y}/{x}.jpeg'
-
-// Demo daty — miesięczne klatki 2015–2024
+// Demo daty — miesięczne klatki 2015 do bieżącego miesiąca
 function buildDemoDates(): string[] {
   const dates: string[] = []
-  for (let y = 2015; y <= 2024; y++) {
-    for (let m = 1; m <= 12; m++) {
+  const now = new Date()
+  for (let y = 2015; y <= now.getFullYear(); y++) {
+    const maxMonth = y === now.getFullYear() ? now.getMonth() + 1 : 12
+    for (let m = 1; m <= maxMonth; m++) {
       dates.push(`${y}-${String(m).padStart(2, '0')}-01`)
     }
   }
@@ -42,9 +40,7 @@ export function useTimeline(manifestTimeline?: string[]): TimelineState {
 
   const currentDate = dates[dateIndex] ?? dates[0]
 
-  // Blue Marble dla ostatniej daty (placeholder "teraz"), MODIS dla historii
-  const tileUrl =
-    dateIndex === dates.length - 1 ? BLUE_MARBLE_URL : tileUrlForDate(currentDate)
+  const tileUrl = tileUrlForDate(currentDate)
 
   return { dates, dateIndex, currentDate, tileUrl, setDateIndex }
 }

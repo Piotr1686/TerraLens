@@ -132,6 +132,7 @@ export function Globe({ tileUrl = BLUE_MARBLE, extraLayers = [], flyTarget, onRe
     lineWidthMinPixels: 1,
     stroked: true,
     pickable: true,
+    parameters: { depthCompare: 'always' as const },
     onClick: (info: PickingInfo<Region>) => {
       if (info.object) flyToRegion(info.object)
     },
@@ -150,6 +151,7 @@ export function Globe({ tileUrl = BLUE_MARBLE, extraLayers = [], flyTarget, onRe
     outlineWidth: 2,
     outlineColor: [0, 0, 0, 180],
     fontSettings: { sdf: true },
+    parameters: { depthCompare: 'always' as const },
   })
 
   const layers = [
