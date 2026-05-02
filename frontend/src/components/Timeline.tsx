@@ -8,7 +8,7 @@ interface Props {
 
 function formatDate(dateStr: string): string {
   const [year, month] = dateStr.split('-')
-  const monthNames = ['STY', 'LUT', 'MAR', 'KWI', 'MAJ', 'CZE', 'LIP', 'SIE', 'WRZ', 'PAŹ', 'LIS', 'GRU']
+  const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
   return `${monthNames[parseInt(month, 10) - 1]} ${year}`
 }
 

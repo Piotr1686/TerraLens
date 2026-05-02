@@ -25,7 +25,7 @@ export interface Region {
 const REGIONS: Region[] = [
   { id: 'amazonia', label: 'Amazonia', longitude: -60, latitude: -5, zoom: 4 },
   { id: 'dubai', label: 'Dubai', longitude: 55.3, latitude: 25.2, zoom: 5 },
-  { id: 'arctic', label: 'Arktyka', longitude: 15, latitude: 72, zoom: 3 },
+  { id: 'arctic', label: 'Arctic', longitude: 15, latitude: 72, zoom: 3 },
 ]
 
 interface Props {
@@ -197,7 +197,7 @@ export function Globe({ tileUrl = BLUE_MARBLE, extraLayers = [], flyTarget, onRe
             onClick={handleReset}
             className="rounded-full px-4 py-2 text-sm font-medium text-white/60 backdrop-blur hover:text-white"
           >
-            ← Glob
+            ← Globe
           </button>
         )}
       </div>

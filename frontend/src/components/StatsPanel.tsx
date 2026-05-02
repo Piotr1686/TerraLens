@@ -9,30 +9,30 @@ interface RegionStats {
 // Demo dane 2015–2024; docelowo fetch z changes.json per region z HF CDN
 const REGION_STATS: Record<string, RegionStats> = {
   amazonia: {
-    primary: { value: '−34%', label: 'zieleni', trend: 'down' },
+    primary: { value: '−34%', label: 'vegetation', trend: 'down' },
     period: '2015–2024',
     secondary: [
-      { label: 'deforestacja', value: '18%', color: 'text-red-400' },
-      { label: 'zabudowa', value: '12%', color: 'text-orange-400' },
-      { label: 'woda', value: '8%', color: 'text-blue-400' },
+      { label: 'deforestation', value: '18%', color: 'text-red-400' },
+      { label: 'urban area',    value: '12%', color: 'text-orange-400' },
+      { label: 'water',         value: '8%',  color: 'text-blue-400' },
     ],
   },
   dubai: {
-    primary: { value: '+47%', label: 'zabudowy', trend: 'up' },
+    primary: { value: '+47%', label: 'urban area', trend: 'up' },
     period: '2015–2024',
     secondary: [
-      { label: 'urban expansion', value: '23%', color: 'text-orange-400' },
-      { label: 'NDVI spadek', value: '−15%', color: 'text-red-400' },
-      { label: 'woda', value: '3%', color: 'text-blue-400' },
+      { label: 'urban expansion', value: '23%',  color: 'text-orange-400' },
+      { label: 'NDVI drop',       value: '−15%', color: 'text-red-400' },
+      { label: 'water',           value: '3%',   color: 'text-blue-400' },
     ],
   },
   arctic: {
-    primary: { value: '−28%', label: 'pokrywy lodowej', trend: 'down' },
+    primary: { value: '−28%', label: 'ice cover', trend: 'down' },
     period: '2015–2024',
     secondary: [
-      { label: 'lód morski', value: '−28%', color: 'text-cyan-400' },
-      { label: 'otwarta woda', value: '+15%', color: 'text-blue-400' },
-      { label: 'zabudowa', value: '0%', color: 'text-white/40' },
+      { label: 'sea ice',    value: '−28%', color: 'text-cyan-400' },
+      { label: 'open water', value: '+15%', color: 'text-blue-400' },
+      { label: 'urban area', value: '0%',   color: 'text-white/40' },
     ],
   },
 }
@@ -78,7 +78,7 @@ export function StatsPanel({ regionId }: Props) {
           visible ? 'translate-x-0 opacity-100' : '-translate-x-4 opacity-0',
         ].join(' ')}
         role="region"
-        aria-label="Statystyki regionu"
+        aria-label="Region statistics"
       >
         <PanelContent primary={primary} trendColor={trendColor} period={period} secondary={secondary} />
       </div>
@@ -92,7 +92,7 @@ export function StatsPanel({ regionId }: Props) {
           visible ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0',
         ].join(' ')}
         role="region"
-        aria-label="Statystyki regionu"
+        aria-label="Region statistics"
       >
         <PanelContent primary={primary} trendColor={trendColor} period={period} secondary={secondary} />
       </div>
@@ -110,7 +110,7 @@ interface PanelContentProps {
 function PanelContent({ primary, trendColor, period, secondary }: PanelContentProps) {
   return (
     <>
-      <p className="text-xs font-semibold uppercase tracking-wider text-white/50">Zmiana {period}</p>
+      <p className="text-xs font-semibold uppercase tracking-wider text-white/50">Change {period}</p>
 
       {/* Główna liczba */}
       <div className="flex items-baseline gap-1.5">
@@ -132,7 +132,7 @@ function PanelContent({ primary, trendColor, period, secondary }: PanelContentPr
       </div>
 
       {/* Źródło */}
-      <p className="text-[10px] text-white/30">MODIS · HLS · CVA · dane demo</p>
+      <p className="text-[10px] text-white/30">MODIS · HLS · CVA · demo data</p>
     </>
   )
 }

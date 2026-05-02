@@ -53,7 +53,7 @@ export function GuidedTour({ isRunning, isComplete, stepIndex, onStop, onReplay 
           {/* Aktualny krok */}
           <span className="min-w-16 text-center text-xs font-medium text-white/80">
             {stepIndex === 0
-              ? 'Trwa...'
+              ? 'Starting...'
               : (TOUR_STEPS[stepIndex]?.label ?? '')}
           </span>
 
@@ -61,9 +61,9 @@ export function GuidedTour({ isRunning, isComplete, stepIndex, onStop, onReplay 
           <button
             onClick={onStop}
             className="rounded-full bg-white/10 px-3 py-0.5 text-xs text-white/60 hover:bg-white/20 hover:text-white transition-colors"
-            title="Przerwij (ESC)"
+            title="Stop (ESC)"
           >
-            ✕ Przerwij
+            ✕ Stop
           </button>
         </div>
       )}

@@ -8,10 +8,10 @@ export interface TourStep {
 
 // Stała sekwencja trasy — Bezier camera path w useCinematicFlight.ts
 export const TOUR_STEPS: TourStep[] = [
-  { regionId: null,       duration: 2000, label: 'Widok globalny' },
+  { regionId: null,       duration: 2000, label: 'Global view'    },
   { regionId: 'amazonia', duration: 4000, label: 'Amazonia'       },
   { regionId: 'dubai',    duration: 4000, label: 'Dubai'          },
-  { regionId: 'arctic',   duration: 4000, label: 'Arktyka'        },
+  { regionId: 'arctic',   duration: 4000, label: 'Arctic'         },
 ]
 
 export interface UseTourReturn {

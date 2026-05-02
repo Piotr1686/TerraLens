@@ -33,7 +33,7 @@ export interface PreloadState {
 
 export function usePreload(): PreloadState {
   const [progress, setProgress] = useState(0)
-  const [label, setLabel] = useState('Inicjalizacja...')
+  const [label, setLabel] = useState('Initialising...')
   const [isReady, setIsReady] = useState(false)
   const [manifest, setManifest] = useState<unknown>(null)
   const [hasPreview, setHasPreview] = useState(false)
@@ -60,17 +60,17 @@ export function usePreload(): PreloadState {
     }
 
     // Krok 1: manifest danych
-    setLabel('Manifest danych...')
+    setLabel('Data manifest...')
     fetch(HF_MANIFEST_URL)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data) setManifest(data)
-        tick('Tekstury globu...')
+        tick('Globe textures...')
       })
-      .catch(() => tick('Tekstury globu...'))
+      .catch(() => tick('Globe textures...'))
 
     // Krok 2: tekstura Blue Marble (zoom 0)
-    preloadImage(BLUE_MARBLE_TILE_0).then(() => tick('Podgląd regionu...'))
+    preloadImage(BLUE_MARBLE_TILE_0).then(() => tick('Region preview...'))
 
     // Krok 3: podgląd Amazonii
     new Promise<void>((resolve) => {
@@ -78,7 +78,7 @@ export function usePreload(): PreloadState {
       img.onload = () => { setHasPreview(true); resolve() }
       img.onerror = () => resolve()
       img.src = AMAZONIA_PREVIEW
-    }).then(() => tick('Gotowe'))
+    }).then(() => tick('Ready'))
   }, [])
 
   return { progress, label, isReady, manifest, hasPreview }
