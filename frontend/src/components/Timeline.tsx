@@ -30,7 +30,7 @@ export function Timeline({ dates, dateIndex, onDateChange }: Props) {
         max={dates.length - 1}
         step={1}
         value={[dateIndex]}
-        onValueChange={([i]) => onDateChange(i)}
+        onValueChange={(v) => onDateChange(Array.isArray(v) ? v[0] : (v as number))}
         className="w-full"
       />
     </div>

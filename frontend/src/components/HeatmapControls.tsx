@@ -43,7 +43,7 @@ export function HeatmapControls({ metric, opacity, onMetricChange, onOpacityChan
           max={1}
           step={0.05}
           value={[opacity]}
-          onValueChange={([v]) => onOpacityChange(v)}
+          onValueChange={(v) => onOpacityChange(Array.isArray(v) ? v[0] : (v as number))}
         />
       </div>
     </div>

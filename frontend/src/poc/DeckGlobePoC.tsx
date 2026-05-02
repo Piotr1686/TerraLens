@@ -2,29 +2,31 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import DeckGL from '@deck.gl/react'
 import { TileLayer } from '@deck.gl/geo-layers'
 import { BitmapLayer } from '@deck.gl/layers'
-import { _GlobeView as GlobeView } from '@deck.gl/core'
+import { _GlobeView as GlobeView, FlyToInterpolator } from '@deck.gl/core'
 import type { MapViewState } from '@deck.gl/core'
 
+// BlueMarble_NextGeneration — layer bez daty (time-invariant), ext .jpeg, zoom 0–7
 const GIBS_URL =
   'https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/' +
-  'BlueMarble_NextGeneration/default/2004-08/' +
-  '500m/{z}/{y}/{x}.jpg'
+  'BlueMarble_NextGeneration/default/' +
+  '500m/{z}/{y}/{x}.jpeg'
 
-// Wyższe zoom bo _GlobeView skaluje inaczej niż Mercator
+// Zoom w _GlobeView: 1=cała Ziemia ~55% ekranu, 2=kontynent, 3=duży region
 const STOPS = [
-  { longitude: 0, latitude: 20, zoom: 0.8, label: 'Glob' },
-  { longitude: -60, latitude: -5, zoom: 8, label: 'Amazonia' },
-  { longitude: 55.3, latitude: 25.2, zoom: 9, label: 'Dubai' },
-  { longitude: 15, latitude: 79, zoom: 6, label: 'Arktyka' },
+  { longitude: 0, latitude: 20, zoom: 1.0, label: 'Glob' },
+  { longitude: -60, latitude: -5, zoom: 2.5, label: 'Amazonia' },
+  { longitude: 55.3, latitude: 25.2, zoom: 3.5, label: 'Dubai' },
+  { longitude: 15, latitude: 68, zoom: 2.0, label: 'Arktyka' },
 ]
 
-const DWELL_MS = 2000
-const FLY_MS = 3500
+const DWELL_MS = 2500
+const FLY_MS = 4000
 
 const GLOBE = new GlobeView({ id: 'globe', nearZMultiplier: 0.1 })
+const INITIAL_STATE: MapViewState = STOPS[0]
 
 export function DeckGlobePoC() {
-  const [viewState, setViewState] = useState<MapViewState>(STOPS[0])
+  const [viewState, setViewState] = useState<MapViewState>(INITIAL_STATE)
   const [tourStep, setTourStep] = useState(0)
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([])
   const tourActiveRef = useRef(false)
@@ -37,12 +39,15 @@ export function DeckGlobePoC() {
 
   useEffect(() => clearTour, [clearTour])
 
-  // Instant jump — bez transition żeby wykluczyć błędy interpolacji
   const flyTo = useCallback(
     (step: number) => {
       clearTour()
       setTourStep(step)
-      setViewState({ ...STOPS[step], transitionDuration: 0 })
+      setViewState({
+        ...STOPS[step],
+        transitionDuration: FLY_MS,
+        transitionInterpolator: new FlyToInterpolator({ speed: 1.5 }),
+      })
     },
     [clearTour],
   )
@@ -56,14 +61,25 @@ export function DeckGlobePoC() {
       const t = setTimeout(() => {
         if (!tourActiveRef.current) return
         setTourStep(step)
-        setViewState({ ...stop, transitionDuration: FLY_MS })
+        setViewState({
+          ...stop,
+          transitionDuration: FLY_MS,
+          transitionInterpolator: new FlyToInterpolator({ speed: 1.5 }),
+        })
       }, delay)
       timersRef.current.push(t)
       delay += FLY_MS + DWELL_MS
     })
+    // Po zakończeniu tour: powrót do widoku globalnego
     const tEnd = setTimeout(() => {
+      if (!tourActiveRef.current) return
       tourActiveRef.current = false
       setTourStep(0)
+      setViewState({
+        ...INITIAL_STATE,
+        transitionDuration: FLY_MS,
+        transitionInterpolator: new FlyToInterpolator({ speed: 1.2 }),
+      })
     }, delay)
     timersRef.current.push(tEnd)
   }, [clearTour])
@@ -72,7 +88,7 @@ export function DeckGlobePoC() {
     id: 'blue-marble',
     data: GIBS_URL,
     minZoom: 0,
-    maxZoom: 8,
+    maxZoom: 7,
     tileSize: 256,
     extent: [-180, -90, 180, 90],
     renderSubLayers: (props) => {
@@ -105,7 +121,7 @@ export function DeckGlobePoC() {
         layers={[tileLayer]}
       />
 
-      {/* Debug HUD — lat/lon/zoom żeby potwierdzić czy współrzędne są poprawne */}
+      {/* Debug HUD */}
       <div className="absolute left-4 top-4 space-y-1 text-xs text-white/60">
         <div>T6.2 · Deck.gl GlobeView PoC · Blue Marble</div>
         <div>
@@ -113,25 +129,6 @@ export function DeckGlobePoC() {
           lat: {(viewState.latitude ?? 0).toFixed(2)} &nbsp;
           zoom: {(viewState.zoom ?? 0).toFixed(2)}
         </div>
-      </div>
-
-      {/* Diagnostyczne przyciski — mapowanie lon/lat w _GlobeView */}
-      <div className="absolute bottom-16 left-1/2 flex -translate-x-1/2 gap-1 text-xs">
-        {[
-          { label: '0°E 0°N', lon: 0, lat: 0 },
-          { label: '20°E 0°N', lon: 20, lat: 0 },
-          { label: '-60°W 0°N', lon: -60, lat: 0 },
-          { label: '55°E 25°N', lon: 55, lat: 25 },
-          { label: '120°E 30°N', lon: 120, lat: 30 },
-        ].map(({ label, lon, lat }) => (
-          <button
-            key={label}
-            className="rounded bg-yellow-500/20 px-2 py-1 text-yellow-200 backdrop-blur hover:bg-yellow-500/40"
-            onClick={() => setViewState({ longitude: lon, latitude: lat, zoom: 4 })}
-          >
-            {label}
-          </button>
-        ))}
       </div>
 
       <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-2">

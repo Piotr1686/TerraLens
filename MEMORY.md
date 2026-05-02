@@ -24,6 +24,58 @@
 - **Cache:** `src/terralens/db/queries.py` — czyste SQL (bez ORM), WAL mode, UPSERT `ON CONFLICT`, TTL przez `expires_at` ISO8601 UTC. `cleanup_expired()` zwraca liczbę usuniętych wierszy.
 - **Uzasadnienie:** Brief v3.2 wymaga SQLite bez ORM dla prostoty. Typer wybrany nad Click ze względu na automatyczne `--help` z type hints.
 
+### [2026-05-02] T8.4 — FPS throttle: fps w CinematicFlightConfig, fpsRef przez useEffect
+
+- **Wzorzec fps throttle:** `fps` jako pole `CinematicFlightConfig` (nie parametr hooka) — brak refa w hooku, brak render-time write. Globe.tsx przekazuje `fps` z propsa do każdego wywołania `fly()`.
+- **fpsRef w useRevealOpacity:** `useEffect(() => { fpsRef.current = fps }, [fps])` — aktualizacja refa poza renderem. React Compiler `react-hooks/refs` zabrania `fpsRef.current = fps` bezpośrednio w ciele funkcji komponentu/hooka.
+- **Throttle logika:** `minFrameMs = 1000 / fps`. Tick pomija `onFrame/setViewState` gdy `now - lastFrameTime < minFrameMs` — nadal wywołuje RAF aby nie stracić czasu animacji. Finalna klatka (`t >= 1`) zawsze przechodzi (bez throttle) gwarantując dokładne wylądowanie.
+- **Mobile breakpoint:** `useMediaQuery('(max-width: 768px)')` → `fps = 30`. Zmienia się tylko przy rotacji urządzenia — akceptowalny koszt re-tworzenia callbacków.
+
+### [2026-05-02] T8.3 — Heatmap reveal: arrivedRegion + onRegionArrival pattern
+
+- **Wzorzec:** `arrivedRegion` (oddzielny state od `selectedRegion`) jako trigger dla `useRevealOpacity` i jako `region` dla `useHeatmapLayer`. Heatmap ukryta podczas lotu (region=null → layer=null), ujawnia się dopiero po wylądowaniu.
+- **Przepływ:** `selectedRegion` zmienia się na starcie lotu → `useEffect([selectedRegion])` czyści `arrivedRegion=null` → brak heatmapy. Po wylądowaniu `onRegionArrival(id)` → `arrivedRegion=id` → reveal animacja.
+- **onComplete w fly():** Opcjonalny callback `onComplete?: () => void` w `useCinematicFlight.fly()` — wywoływany po ostatniej klatce RAF. Globe.tsx: `() => onRegionArrival?.(region.id)`.
+- **Dlaczego arrivedRegion ≠ selectedRegion:** selectedRegion zmienia się natychmiast (steruje UI markera, tourem). arrivedRegion zmienia się z opóźnieniem (po locie) — steruje tylko heatmapą.
+
+### [2026-05-02] T8.2 — Cinematic camera: RAF + Bezier zoom arc (bez FlyToInterpolator)
+
+- **Architektura:** `useCinematicFlight()` — hook z wewnętrznym `posRef` (pozycja kamery). Nie przyjmuje `setViewState` jako parametru — zamiast tego `fly(to, config, onFrame)` przyjmuje callback na każdą klatkę. `setPosition(vs)` synchronizuje pozycję po interakcji usera.
+- **Dlaczego posRef wewnętrznie:** ESLint `react-hooks/refs` flaga dostęp do `ref.current` w domknięciach tworzonych podczas renderu (np. w `flyToRegion` → `markerLayer.onClick`). Przeniesienie odczytu `ref.current` do wnętrza hooka (wywoływanego z event handlera, nie z renderu) eliminuje błąd.
+- **Bezier zoom arc:** Kwadratowy Bezier P0=z_start, P1=min(z0,z1)-zoomDip, P2=z_end. `zoomDip=1.5` dla lotu do regionu, `0.8` dla resetu do globu. Floor P1 na 0.5 (nie znikamy poniżej horyzontu).
+- **Easing:** `easeInOutCubic(t)` — standardowa formuła, wolny start, przyspieszenie, wolne lądowanie.
+- **Cancel on interaction:** `onViewStateChange` sprawdza `interactionState.isDragging/isZooming/isPanning/isRotating` → `cancelFlight()`. Lot płynnie przerywany, user przejmuje kontrolę.
+- **Kolejność deklaracji:** `flyToRegion` i `handleReset` muszą być zadeklarowane PRZED `useEffect([flyTarget])` który ich używa (hoisting nie działa dla `const`).
+
+### [2026-05-01] T8.1 — Preloader gate + manifest ownership
+
+- **Wzorzec gate:** `useTour({ enabled: isReady })` — `useEffect([enabled])` odpala `start()` gdy `enabled` zmienia się `false→true`. Bezpieczne: przy re-render z tym samym `true` nie startuje ponownie (timer już biegnie).
+- **Manifest ownership:** manifest.json fetchuje `usePreload` (jeden fetch, jeden owner). Globe.tsx nie fetchuje go samodzielnie — prop `onManifestLoaded` usunięty. App.tsx przekazuje wynik do `manifestTimeline` via `useEffect([manifest])`.
+- **MIN_DISPLAY_MS:** `usePreload` trzyma `startTime = Date.now()` i opóźnia `setIsReady(true)` o `max(0, MIN_DISPLAY_MS - elapsed)`. Preloader nie mignie przy szybkim połączeniu.
+- **amazonia_preview.jpg:** `/public/amazonia_preview.jpg` — plik nie istnieje → CSS gradient fallback. `preloadImage` rozwiązuje nawet przy 404 (graceful degrade). Dodać prawdziwy plik przed deploy S9.
+
+### [2026-05-01] T7.5 — Guided Tour: flyTarget prop + timer-based kroki
+
+- **Sterowanie globem z zewnątrz:** `Globe.flyTarget?: string | null` — gdy zmienia się na string → FlyToInterpolator do regionu; gdy null → handleReset. `undefined` = brak sterowania (user mode).
+- **useTour wzorzec:** `runStep(idx)` → `setTimeout(runStep(idx+1), duration)` — ta sama strategia co T6.2. Rekursja przez `timerRef`, brak deps w useCallback (zamknięcie przez ref).
+- **Interrupt:** kliknięcie markera + ESC → `stop()` → `isRunning=false` → `flyTarget=undefined` → Globe wraca pod kontrolę usera. Animacja FlyTo dokończa się (smooth, nie jump-cut).
+- **Replay:** `clearTimer` + `requestAnimationFrame(() => runStep(0))` — RAF gwarantuje że React zaktualizuje stan przed startem nowej sekwencji.
+- **T8.2:** `useTour.ts` będzie rozbudowany o krzywe Beziera — zachować `TOUR_STEPS` jako publiczne stałe.
+
+### [2026-04-30] T7.3 — Heatmap overlay: TileLayer raster (nie MVTLayer), GIBS jako demo
+
+- **Format:** Heatmapy SSIM/NDVI/CVA są raster PNG → `TileLayer + BitmapLayer`. `MVTLayer` tylko dla vector tiles — nie używać dla raster heatmap.
+- **Demo fallback:** GIBS `MODIS_Terra_NDVI_8Day` (brak auth, date-parameterized) jako placeholder gdy PMTiles niedostępne. URL: `.../MODIS_Terra_NDVI_8Day/default/{date}/250m/{z}/{y}/{x}.png`
+- **Architektura:** `useHeatmapLayer(config)` → zwraca `Layer | null`. `Globe.extraLayers` prop przyjmuje tablicę dodatkowych warstw wstawianych między tile'ami a markerami.
+- **Aktywacja:** Heatmap pojawia się tylko gdy `region !== null` i `opacity > 0`. Bez wybranego regionu — brak requestów.
+
+### [2026-04-30] T7.2 — Cross-fade między tile layers: RAF + dwa TileLayer z opacity
+
+- **Wzorzec:** Dwa `TileLayer` równolegle: `tile-prev` (opacity = 1 - progress) + `tile-current` (opacity = progress). Przejście 600ms via `requestAnimationFrame`.
+- **Dlaczego nie CSS:** DeckGL renderuje do canvas — CSS transitions na warstwie nie działają. Jedyna opcja to `opacity` prop w DeckGL layer + RAF.
+- **Hook:** `useTimeline(manifestTimeline?)` — zwraca `{ dates, dateIndex, tileUrl, setDateIndex }`. Demo: MODIS daty historyczne, Blue Marble dla ostatniej daty ("teraz").
+- **Scope:** `Globe.tsx` zarządza cross-fade wewnętrznie (prop `tileUrl`), `App.tsx` koordynuje z `Timeline.tsx` i `useTimeline`.
+
 ### [2026-04-30] S6 DONE — Frontend engine: Deck.gl GlobeView (ADR-001)
 
 - **Decyzja:** Deck.gl `_GlobeView` jako silnik 3D globu. R3F PoC pominięty — Deck.gl spełnia wymagania MVP.

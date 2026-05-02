@@ -63,9 +63,9 @@ Tylko gdy:
 | **S4** | Change detection pipeline | T2 | ⧗ |
 | **S5** | Export do PMTiles | T2 | ⧗ |
 | **S6** | **Frontend PoC (DECISION GATE)** | T3 | ⧗ |
-| **S7** | Frontend build (wybrany silnik) | T3–T4 | ⧗ |
-| **S8** | 10-Second Hook polish + preloader | T4 | ⧗ |
-| **S9** | Deploy (R2 + Vercel) + 3 regiony | T5 | ⧗ |
+| **S7** | Frontend build (wybrany silnik) | T3–T4 | ✓ DONE (2026-05-02) |
+| **S8** | 10-Second Hook polish + preloader | T4 | ✓ DONE (2026-05-02) |
+| **S9** | Deploy (R2 + Vercel) + 3 regiony | T5 | ⟳ IN PROGRESS |
 
 Legenda: ✓ DONE · ⟳ IN PROGRESS · ⧗ TODO · ✗ BLOCKED
 
@@ -913,9 +913,9 @@ S3  AI Upscaling          [x] ✓ DONE 2026-04-26
 S4  Change Detection      [x] ✓ DONE 2026-04-26
 S5  Export PMTiles        [x] ✓ DONE 2026-04-28
 S6  Frontend PoC + Decision [x] ✓ DONE 2026-04-30
-S7  Frontend Build        [ ] ⧗
-S8  10-Second Hook Polish [ ] ⧗
-S9  Deploy Production     [ ] ⧗
+S7  Frontend Build        [x] ✓ DONE 2026-05-02
+S8  10-Second Hook Polish [x] ✓ DONE 2026-05-02
+S9  Deploy Production     [ ] ⟳ IN PROGRESS
 ```
 
 **Estymaty czasowe (solo dev, part-time):**
