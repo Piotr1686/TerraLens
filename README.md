@@ -13,7 +13,7 @@
 
 ## Live Demo
 
-🌍 **[terralens.vercel.app](https://terralens.vercel.app)** *(deploy in progress)*
+🌍 **[terra-lens-zeta.vercel.app](https://terra-lens-zeta.vercel.app)**
 
 ---
 
