@@ -10,6 +10,7 @@ import { useHeatmapLayer } from '@/hooks/useHeatmapLayer'
 import { useTour } from '@/hooks/useTour'
 import { usePreload } from '@/hooks/usePreload'
 import { useRevealOpacity } from '@/hooks/useRevealOpacity'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
 import type { HeatmapMetric } from '@/hooks/useHeatmapLayer'
 
 function App() {
@@ -18,6 +19,9 @@ function App() {
   const [manifestTimeline, setManifestTimeline] = useState<string[] | undefined>()
   const [heatmapMetric, setHeatmapMetric] = useState<HeatmapMetric>('ndvi')
   const [heatmapOpacity, setHeatmapOpacity] = useState(0.6)
+
+  const isMobile = useMediaQuery('(max-width: 768px)')
+  const fps = isMobile ? 30 : 60
 
   const { progress, label, isReady, manifest, hasPreview } = usePreload()
 
@@ -56,7 +60,7 @@ function App() {
     setArrivedRegion(regionId)
   }, [])
 
-  const revealFraction = useRevealOpacity(arrivedRegion)
+  const revealFraction = useRevealOpacity(arrivedRegion, 600, fps)
 
   const { dates, dateIndex, currentDate, tileUrl, setDateIndex } = useTimeline(manifestTimeline)
 
@@ -77,6 +81,7 @@ function App() {
         flyTarget={flyTarget}
         onRegionSelect={handleRegionSelect}
         onRegionArrival={handleRegionArrival}
+        fps={fps}
       />
       <GuidedTour
         isRunning={isRunning}

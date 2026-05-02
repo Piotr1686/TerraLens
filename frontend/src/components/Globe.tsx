@@ -34,9 +34,10 @@ interface Props {
   flyTarget?: string | null   // string → leć do regionu, null → reset do widoku globalnego
   onRegionSelect?: (regionId: string | null) => void
   onRegionArrival?: (regionId: string) => void  // wywoływane po wylądowaniu kamery
+  fps?: number                                  // target FPS animacji, 30 na mobile
 }
 
-export function Globe({ tileUrl = BLUE_MARBLE, extraLayers = [], flyTarget, onRegionSelect, onRegionArrival }: Props) {
+export function Globe({ tileUrl = BLUE_MARBLE, extraLayers = [], flyTarget, onRegionSelect, onRegionArrival, fps = 60 }: Props) {
   const [viewState, setViewState] = useState<MapViewState>(INITIAL_VIEW)
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
 
@@ -48,19 +49,19 @@ export function Globe({ tileUrl = BLUE_MARBLE, extraLayers = [], flyTarget, onRe
       setSelectedRegion(region.id)
       cinematicFly(
         { longitude: region.longitude, latitude: region.latitude, zoom: region.zoom },
-        { duration: 2200 },
+        { duration: 2200, fps },
         setViewState,
         () => onRegionArrival?.(region.id),
       )
       onRegionSelect?.(region.id)
     },
-    [onRegionSelect, onRegionArrival, cinematicFly],
+    [onRegionSelect, onRegionArrival, cinematicFly, fps],
   )
 
   const handleReset = useCallback(() => {
     setSelectedRegion(null)
-    cinematicFly(INITIAL_VIEW, { duration: 1800, zoomDip: 0.8 }, setViewState)
-  }, [cinematicFly])
+    cinematicFly(INITIAL_VIEW, { duration: 1800, zoomDip: 0.8, fps }, setViewState)
+  }, [cinematicFly, fps])
 
   // Zewnętrzne sterowanie lotem (tour)
   useEffect(() => {

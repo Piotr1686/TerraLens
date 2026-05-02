@@ -16,6 +16,7 @@ function lerpLon(a: number, b: number, t: number): number {
 export interface CinematicFlightConfig {
   duration?: number  // ms, domyślnie 2200
   zoomDip?: number   // ile zoom units "zanurzyć" w środku lotu, domyślnie 1.5
+  fps?: number       // target FPS animacji, domyślnie 60 (pass 30 na mobile)
 }
 
 const INITIAL_POS: MapViewState = { longitude: 0, latitude: 20, zoom: 1.0 }
@@ -47,7 +48,7 @@ export function useCinematicFlight() {
       cancel()
       // posRef.current odczytywany tutaj, NIE podczas renderu
       const from = posRef.current
-      const { duration = 2200, zoomDip = 1.5 } = config
+      const { duration = 2200, zoomDip = 1.5, fps = 60 } = config
       const z0 = from.zoom ?? 1
       const z1 = to.zoom ?? 1
       const lon0 = from.longitude ?? 0
@@ -58,6 +59,8 @@ export function useCinematicFlight() {
       // Punkt kontrolny Beziera — parabola zoom-out w połowie lotu
       const zControl = Math.max(0.5, Math.min(z0, z1) - zoomDip)
       const startTime = performance.now()
+      const minFrameMs = 1000 / fps
+      let lastFrameTime = 0
 
       const tick = (now: number) => {
         const elapsed = now - startTime
@@ -68,6 +71,12 @@ export function useCinematicFlight() {
           onComplete?.()
           return
         }
+        // FPS throttle — pomiń klatkę jeśli za wcześnie od poprzedniej
+        if (now - lastFrameTime < minFrameMs) {
+          rafRef.current = requestAnimationFrame(tick)
+          return
+        }
+        lastFrameTime = now
         const t = easeInOutCubic(elapsed / duration)
         const zoom = (1 - t) ** 2 * z0 + 2 * (1 - t) * t * zControl + t ** 2 * z1
         const vs: MapViewState = {
