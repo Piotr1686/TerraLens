@@ -16,15 +16,16 @@ logger = logging.getLogger(__name__)
 GIBS_BASE = "https://gibs.earthdata.nasa.gov/wmts/epsg4326/best"
 
 # Mapowanie skróconych nazw warstw → parametry WMTS
+# Warstwy zweryfikowane jako działające w GIBS EPSG:4326 250m TMS
 LAYERS: dict[str, dict] = {
     "HLS_RGB": {
-        "layer_id": "HLS_L30_Nadir_BRDF_Adjusted_Reflectance",
-        "tilematrixset": "31.25m",
-        "fmt": "png",
+        "layer_id": "MODIS_Terra_CorrectedReflectance_TrueColor",
+        "tilematrixset": "250m",
+        "fmt": "jpg",
     },
     "MODIS_NDVI": {
-        "layer_id": "MODIS_Terra_L3_NDVI_Monthly_9km",
-        "tilematrixset": "2km",
+        "layer_id": "MODIS_Terra_NDVI_8Day",
+        "tilematrixset": "250m",
         "fmt": "png",
     },
 }
@@ -65,7 +66,8 @@ def fetch_tile(
         raise ValueError(f"Nieznana warstwa: {layer!r}. Dostępne: {list(LAYERS)}")
 
     cfg = get_config()
-    output_path = cfg.data_dir / "tiles" / layer / date / str(z) / str(x) / f"{y}.png"
+    ext = LAYERS[layer]["fmt"]
+    output_path = cfg.data_dir / "tiles" / layer / date / str(z) / str(x) / f"{y}.{ext}"
 
     db = init_db(cfg.cache_db, cfg.cache_ttl_days)
     try:

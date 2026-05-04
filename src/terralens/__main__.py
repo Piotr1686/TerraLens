@@ -202,7 +202,7 @@ def deploy(
         raise typer.Exit(1)
 
     console.print(
-        f"[cyan]Deploy:[/cyan] {region} → [cyan]{repo_id}[/cyan]"
+        f"[cyan]Deploy:[/cyan] {region} -> [cyan]{repo_id}[/cyan]"
         + (" [yellow](dry-run)[/yellow]" if dry_run else "")
     )
     for f in files:

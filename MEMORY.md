@@ -9,6 +9,38 @@
 
 <!-- Claude dopisuje tutaj decyzje architektoniczne wraz z uzasadnieniem -->
 
+### [2026-05-02] T9.2 DONE — Vercel deploy: vercel.json w frontend/, nie w root
+
+- **Gotcha monorepo:** Vercel auto-wykrywa `frontend/` jako Root Directory (bo tam jest `package.json` + `vite.config.ts`). `vercel.json` w root z `buildCommand: "cd frontend && ..."` failuje — `cd frontend` nie istnieje gdy CWD = `frontend/`.
+- **Fix:** `vercel.json` musi być w `frontend/` z `buildCommand: "npm run build"` i `outputDirectory: "dist"` (ścieżki relatywne do Root Directory).
+- **Deploy URL:** https://terra-lens-zeta.vercel.app/ · Repo: https://github.com/Piotr1686/TerraLens
+
+### [2026-05-02] T9.2 DONE — HeatmapLayer demo pattern: DEMO_DATE + distinct GIBS layers
+
+- **Problem:** GIBS może nie mieć danych dla dat 2025/2026 (NDVI 8-day composite laga, false-color też). Użycie `currentDate` z timeline (= bieżący miesiąc) → puste kafelki → heatmapa niewidoczna.
+- **Fix:** `DEMO_DATE = '2023-07-01'` hardcoded w `useHeatmapLayer.ts` dla trybu demo. Produkcja używa PMTiles z HF CDN (nie zależy od daty).
+- **Distinct layers per metric:** SSIM→`MODIS_Terra_CorrectedReflectance_TrueColor` (.jpg), NDVI→`MODIS_Terra_NDVI_8Day` (.png), CVA→`MODIS_Terra_CorrectedReflectance_Bands721` (.jpg). Wszystkie EPSG:4326, 250m, zoom 0–9.
+- **UX wzorzec:** `HeatmapControls` renderuje się tylko gdy `arrivedRegion !== null` (App.tsx). Kliknięcie metryki przed lądowaniem kamery = brak efektu — dlatego kontrolki są ukryte do momentu lądowania.
+
+### [2026-05-03] GIBS EPSG:4326 — niestandardowe TileMatrix dimensions + poprawne layer IDs
+
+- **Wymiary TileMatrixSet:** GIBS EPSG:4326 używa własnego podziału (nie standardowego 2^(z+1) × 2^z). Zoom 6 = **80 × 40** (nie 128 × 64). Dotyczy WSZYSTKICH tilematrixsetów (250m, 500m, 1km, 31.25m). Pełna tabela: zoom 0=2×1, 3=10×5, 4=20×10, 5=40×20, 6=80×40, 7=160×80, 8=320×160. Wzór: `col = int((lon+180)/360 * matrix_width)`, `row = int((90-lat)/180 * matrix_height)`.
+- **Poprawne layer IDs dla pipeline:** `HLS_RGB` → `MODIS_Terra_CorrectedReflectance_TrueColor` (format: jpg, TMS: 250m). `MODIS_NDVI` → `MODIS_Terra_NDVI_8Day` (format: png, TMS: 250m). Stare: `HLS_L30_Nadir_BRDF_Adjusted_Reflectance`/31.25m→400, `MODIS_Terra_L3_NDVI_Monthly_9km`/2km→400. Correct layers zweryfikowane przez GIBS GetCapabilities.
+- **Fix w kodzie:** `gibs.py LAYERS` naprawione. `regions.py bbox_to_tiles` — sygnatury `lon_to_col(lon, matrix_width)` i `lat_to_row(lat, matrix_height)` z lookup-table `GIBS_MATRIX_WIDTHS/HEIGHTS` zamiast `2**(z+1)`.
+
+### [2026-05-03] GIBS MODIS_Terra_NDVI_8Day — dostępność tylko od 2025-02-12
+
+- **Odkrycie przez GetCapabilities:** `MODIS_Terra_NDVI_8Day` (250m, PNG) ma w GIBS dane wyłącznie od **2025-02-12** do ~bieżącej daty. Daty 2023/2024 zwracają HTTP 404.
+- **Konsekwencja dla pipeline:** T9.1 fetch MODIS_NDVI musi używać `--start-date 2025-03-01` lub późniejszej. Historyczne dane NDVI (pre-2025) niedostępne w GIBS dla tej warstwy.
+- **Konsekwencja dla frontendu:** `DEMO_DATE` w `useHeatmapLayer.ts` zmieniony z `'2023-07-01'` na `'2025-07-15'` — działa dla wszystkich 3 warstw demo (TrueColor/NDVI_8Day/Bands721).
+- **TrueColor i Bands721:** Nie mają tego ograniczenia — mają wieloletnią historię w GIBS.
+
+### [2026-05-03] Windows cp1250 — znaki Unicode w Rich console output CLI
+
+- **Problem:** Znak `→` (U+2192) w `console.print()` crashuje na Windows z kodowaniem cp1250: `UnicodeEncodeError: 'charmap' codec can't encode character '→'`.
+- **Fix:** Zastąp `→` przez `->` w każdym `console.print()` w `__main__.py`. Dotyczy też innych znaków spoza cp1250 (np. `←`, `↑`, emoji).
+- **Alternatywa:** `PYTHONIOENCODING=utf-8` przed wywołaniem — ale stała zamiana w kodzie jest pewniejsza.
+
 ### [2026-04-25] S2 DONE — Data fetchers: GIBS WMTS + EPSG:4326 tile math + SRTM Earthdata
 
 - **GIBS tile URL:** `{base}/{layer_id}/default/{date}/{tilematrixset}/{z}/{row}/{col}.png` — uwaga: kolejność row/col (nie x/y jak w TMS), row = TileRow (latitude direction).

@@ -1,60 +1,59 @@
 # last_session.md
 
-Sesja: 2026-05-02 · aktywna
+Sesja: 2026-05-03 · 10:00–21:10
 Status: ✓ Zakończona poprawnie
 
 ---
 
 ## ▸ NASTĘPNY KROK (zacznij tutaj)
 
-**Dokończ commit staged zmian, a następnie push na GitHub i deploy na Vercel.**
+**Uruchom `terralens deploy --region dubai`, następnie `--region arctic`, a potem `git tag v0.1.0`.**
 
-Kontekst: Zmiany są już staged (`git add` wykonany) — pozostało tylko `git commit`. Po commicie: `git push origin master` (lub stwórz nowe repo na GitHub i ustaw remote), następnie wejdź na vercel.com/new, podepnij repo — `vercel.json` jest gotowy, zero dodatkowej konfiguracji. Frontend działa w trybie demo (NASA GIBS live tiles) bez danych z pipeline'u, więc publiczny link można mieć w 15 minut.
+Konkretne komendy:
+```powershell
+& "C:\Users\plazo\miniconda3\envs\terralens\python.exe" -m terralens deploy --region dubai
+& "C:\Users\plazo\miniconda3\envs\terralens\python.exe" -m terralens deploy --region arctic
+git add src/terralens/fetchers/regions.py tests/test_regions.py frontend/src/hooks/useHeatmapLayer.ts src/terralens/__main__.py
+git commit -m "fix(T9.1): GIBS tile math lookup-table, NDVI date range 2025+, deploy encoding"
+git tag v0.1.0
+```
+
+Kontekst: T9.1 jest prawie gotowe — amazonia już na HF CDN (7 MB + 10 MB PMTiles + manifest). PMTiles dla dubai i arctic są w `data/export/` (po 7 MB i 10 MB), czekają tylko na upload. Po deploy wszystkich 3 regionów T9.1 jest zamknięte i można otagować v0.1.0.
 
 ---
 
 ## Co zrobiono w tej sesji
 
-- ✓ **T8.2 ✓ DONE** — `useCinematicFlight.ts` — RAF + easeInOutCubic + kwadratowy Bezier zoom arc; posRef wewnętrznie w hooku; cancel na interakcję usera; FlyToInterpolator usunięty z Globe.tsx
-- ✓ **T8.3 ✓ DONE** — `useRevealOpacity.ts` + `onRegionArrival` prop w Globe + `arrivedRegion` state w App — heatmap ukryta podczas lotu, easeOutCubic 600ms fade-in po wylądowaniu
-- ✓ **T8.4 ✓ DONE** — `useMediaQuery.ts` + fps w CinematicFlightConfig + fps throttle w obu RAF hookach — 30fps na mobile (≤768px), fpsRef przez useEffect
-- ✓ **Build fix** — `Timeline.tsx` + `HeatmapControls.tsx` — Slider `onValueChange` type fix (`Array.isArray`); `npm run build` przechodzi ✓ (bundle ~1019KB)
-- ✓ **T9.2 (pliki)** — `vercel.json` stworzony w rootu: SPA rewrites, immutable cache dla `/assets/`, buildCommand + outputDirectory
-- ✓ **T9.3 ✓ DONE** — `README.md` stworzony: badges, mermaid arch diagram, tech stack, quick start, project structure, cross-link NeuroMosaic
-- ✓ **MASTER_PLAN.md** — S7 + S8 oznaczone ✓ DONE (2026-05-02), S9 ⟳ IN PROGRESS
-- ✓ **DeckGlobePoC.tsx** — cleanup: fix URL GIBS (usunięta data z time-invariant layer), zoom levels, FlyToInterpolator przywrócony w PoC, usunięto debug buttons
-- ✓ **Zasada językowa** — czat PL, git/GitHub EN (zapisane w memory)
+- ✓ **Fix `regions.py bbox_to_tiles`** — lookup-table `GIBS_MATRIX_WIDTHS/HEIGHTS` zastępuje błędne `2**(z+1)/2**z`. Zoom 6 = 80×40 (nie 128×64). Sygnatury `lon_to_col(lon, matrix_width)` i `lat_to_row(lat, matrix_height)` zmienione.
+- ✓ **Testy `test_regions.py` zaktualizowane** — 9/9 PASS. Dodano `test_gibs_z6_matrix_dimensions` i `test_zoom_out_of_range_raises`. Zaktualizowano wywołania `lon_to_col`/`lat_to_row` do nowego API.
+- ✓ **Odkrycie GIBS NDVI_8Day — daty 2025+** — zweryfikowane przez GetCapabilities: warstwa dostępna od 2025-02-12. Daty 2023/2024 zawsze HTTP 404.
+- ✓ **Fix `useHeatmapLayer.ts` DEMO_DATE** — zmieniony z `'2023-07-01'` na `'2025-07-15'` (działa dla TrueColor, NDVI_8Day i Bands721).
+- ✓ **Fix `__main__.py` encoding** — znak `→` w deploy output zastąpiony `->` (Windows cp1250 crashuje na U+2192).
+- ✓ **T9.1 fetch DONE** — 528 tile'ów, 0 błędów: HLS_RGB (2022-01-01..2022-06-01) + MODIS_NDVI (2025-03-01..2025-08-01) dla amazonia/dubai/arctic.
+- ✓ **T9.1 export DONE** — 6 PMTiles w `data/export/`: amazonia×2, dubai×2, arctic×2 (7 MB HLS_RGB + 10 MB MODIS_NDVI każdy).
+- ✓ **T9.1 deploy amazonia DONE** — `amazonia_v20260503_203956.pmtiles` (7 MB), `amazonia_v20260503_204038.pmtiles` (10 MB) + `manifest.json` na HF CDN.
 
-## Co zostało (backlog)
+## Co zostało (backlog sesji)
 
-- ⧗ **COMMIT** — zmiany staged, czeka na `git commit "feat(S9): Vercel deploy config + README + build fixes"`
-- ⧗ **T9.2 (deploy)** — push na GitHub + podpięcie repo w vercel.com/new (akcja usera, ~15 min)
-- ⧗ **`frontend/public/amazonia_preview.jpg`** — dodać prawdziwy plik (fallback gradient CSS istnieje, nie blokuje deploy)
-- ⧗ **T9.1** — Pełny pipeline danych (fetch → process → export → deploy) dla 3 regionów — 8-24h overnight run
-- ⧗ `scripts/test_r2.py` — zdecydować: zostaje w repo czy kasujemy?
-- ⧗ Wagi dekodera `satlas_esrgan_x4.pt` — kiedy trenujemy?
+- ⧗ **Deploy dubai** — PMTiles gotowe w `data/export/`, czeka na `terralens deploy --region dubai`
+- ⧗ **Deploy arctic** — PMTiles gotowe w `data/export/`, czeka na `terralens deploy --region arctic`
+- ⧗ **`git commit` + `git tag v0.1.0`** — po zakończeniu deploy
+- ⧗ **`frontend/public/amazonia_preview.jpg`** — gradient CSS fallback działa, nie blokuje
 
 ## Aktywne pliki
 
-- `vercel.json` — SPA rewrites + cache headers (nowy)
-- `README.md` — portfolio README (nowy)
-- `frontend/src/hooks/useCinematicFlight.ts` — RAF + Bezier zoom + fps throttle + onComplete
-- `frontend/src/hooks/useRevealOpacity.ts` — easeOutCubic fade-in po arrival + fps throttle
-- `frontend/src/hooks/useMediaQuery.ts` — SSR-safe matchMedia hook
-- `frontend/src/components/Globe.tsx` — fps prop + onRegionArrival + cinematic flight
-- `frontend/src/App.tsx` — isMobile/fps + arrivedRegion + revealFraction
-- `frontend/src/components/GuidedTour.tsx` — overlay UI trasy
-- `frontend/src/components/StatsPanel.tsx` — slide-in stats + responsive
-- `frontend/src/components/Preloader.tsx` — preload gate + fade-out
-- `frontend/src/hooks/useTour.ts` — timer-based tour logic
-- `frontend/src/hooks/useHeatmapLayer.ts` — TileLayer GIBS/PMTiles
+- `src/terralens/fetchers/regions.py` — NAPRAWIONY: GIBS_MATRIX_WIDTHS/HEIGHTS + nowe sygnatury
+- `tests/test_regions.py` — ZAKTUALIZOWANY: 9 testów z nowym API
+- `frontend/src/hooks/useHeatmapLayer.ts` — ZMIENIONY: DEMO_DATE = '2025-07-15'
+- `src/terralens/__main__.py` — ZMIENIONY: `→` → `->` w deploy output
+- `data/export/` — 6 PMTiles gotowych (amazonia na HF CDN, dubai/arctic lokalnie)
 
 ## Otwarte pytania
 
-- Czy manifest.json jest na HF CDN (`Piotr1686/terralens-data`)? usePreload.ts fetchuje go — graceful fail jeśli nie ma, ale po T9.1 powinien tam trafić
-- `scripts/test_r2.py` — wyczyścić repo przed publicznym pushem?
+- PMTiles export skanuje cały `data/tiles/{layer}/`, nie filtruje per region — każdy plik PMTiles zawiera tile'y wszystkich 3 regionów. Dla MVP OK (viewport ogranicza ładowanie), przy produkcji należy filtrować po bbox regionu.
+- Frontend `productionUrl` w `useHeatmapLayer.ts` oczekuje `{region}_{metric}_heatmap/{z}/{x}/{y}.png` (tile-per-file), nie PMTiles — brak pmtiles.js integracji. Demo mode GIBS działa poprawnie.
 
 ## Do MEMORY.md (przeniesiono)
 
-- Brak nowych wpisów w tej sesji — zmiany (build fix, deploy config, README) nie wymagają wpisu architektonicznego
-- Zasada językowa zapisana w `memory/feedback_language.md` (poza MEMORY.md)
+- [2026-05-03] GIBS MODIS_Terra_NDVI_8Day dostępny tylko od 2025-02-12 (GetCapabilities)
+- [2026-05-03] Windows cp1250 crashuje na znakach spoza tablicy w Rich console — zastępować `->` zamiast `→`
