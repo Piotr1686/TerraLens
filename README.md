@@ -11,6 +11,8 @@
 
 ---
 
+<!-- Replace with: ![TerraLens demo](docs/terralens_demo.gif) once recorded (see scripts/record_demo.md) -->
+
 ## Live Demo
 
 🌍 **[terra-lens-zeta.vercel.app](https://terra-lens-zeta.vercel.app)**
@@ -41,7 +43,7 @@ graph LR
         D --> E
         E --> F[Change Detection\nSSIM · NDVI diff · CVA/LAB]
         F --> G[PMTiles Export\nWebP tiles]
-        G --> H[Cloudflare R2\nCDN]
+        G --> H[Hugging Face Datasets\nCDN]
     end
 
     subgraph "Frontend (React)"
@@ -66,8 +68,9 @@ graph LR
 | AI Upscaling | Satlas ESRGAN 4× (PyTorch FP16, tiled 512×512 with overlap blending) |
 | Change Detection | scikit-image SSIM · NDVI delta · CVA Euclidean in LAB colorspace |
 | Tile Format | PMTiles (raster, WebP quality=85) |
-| Data Sources | NASA GIBS WMTS (no auth) · NASA Earthdata SRTM DEM · Cloudflare R2 |
-| Deploy | Vercel (frontend) · Cloudflare R2 (tile CDN) |
+| Data Sources | NASA GIBS WMTS (no auth) · NASA Earthdata SRTM DEM |
+| Tile CDN | Hugging Face Datasets (HTTP Range Requests, Cloudflare CDN) |
+| Deploy | Vercel (frontend) · Hugging Face Datasets (PMTiles CDN) |
 | CLI | Python · Typer · Rich progress bars · SQLite tile cache |
 
 ---
@@ -94,7 +97,8 @@ pip install -e .
 ```bash
 cp .env.example .env
 # Fill in NASA_EARTHDATA_USER, NASA_EARTHDATA_PASS
-# Fill in R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_ENDPOINT, R2_BUCKET (for deploy)
+# Fill in HF_TOKEN (write token from huggingface.co/settings/tokens)
+# Fill in HF_REPO_ID=Piotr1686/terralens-data
 ```
 
 ### 3. Run the data pipeline
@@ -104,7 +108,7 @@ cp .env.example .env
 terralens fetch --region amazonia --start-date 2015-01-01 --end-date 2024-12-31 --layer HLS_RGB --frequency monthly
 terralens process --region amazonia
 terralens export --region amazonia
-terralens deploy --region amazonia   # uploads to R2
+terralens deploy --region amazonia   # uploads to Hugging Face Datasets CDN
 ```
 
 ### 4. Frontend (dev mode)

@@ -65,7 +65,7 @@ Tylko gdy:
 | **S6** | **Frontend PoC (DECISION GATE)** | T3 | ⧗ |
 | **S7** | Frontend build (wybrany silnik) | T3–T4 | ✓ DONE (2026-05-02) |
 | **S8** | 10-Second Hook polish + preloader | T4 | ✓ DONE (2026-05-02) |
-| **S9** | Deploy (R2 + Vercel) + 3 regiony | T5 | ⟳ IN PROGRESS |
+| **S9** | Deploy (HF CDN + Vercel) + 3 regiony | T5 | ⟳ IN PROGRESS |
 
 Legenda: ✓ DONE · ⟳ IN PROGRESS · ⧗ TODO · ✗ BLOCKED
 
@@ -821,9 +821,9 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
 
 **Cel:** 3 regiony online, publiczny link do portfolio.
 
-### T9.1 — Pełny pipeline dla 3 regionów
+### T9.1 — Pełny pipeline dla 3 regionów ✓ DONE (2026-05-04)
 - **Dependencies:** S8 complete
-- **Output:** PMTiles dla Amazonia, Dubai, Arctic w R2
+- **Output:** PMTiles dla Amazonia, Dubai, Arctic na HF CDN (Piotr1686/terralens-data)
 - **Implementation:**
   ```bash
   for region in amazonia dubai arctic; do
@@ -837,23 +837,23 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
   ```
   UWAGA: Pipeline dla 3 regionów × 10 lat × miesięczne może trwać 8-24h na twoim sprzęcie. Planuj overnight runs.
 - **DoD:**
-  - [ ] Każdy region ma PMTiles + manifest na R2
-  - [ ] Total storage < 10GB (free tier R2)
+  - [x] Każdy region ma PMTiles + manifest na HF CDN (amazonia/dubai/arctic, 6 plików + manifest.json)
+  - [x] Total storage < 10GB (HF Datasets free tier)
 
-### T9.2 — Frontend deploy na Vercel
+### T9.2 — Frontend deploy na Vercel ✓ DONE (2026-05-02)
 - **Dependencies:** T9.1
-- **Output:** Public URL z działającym TerraLens
+- **Output:** https://terra-lens-zeta.vercel.app
 - **Implementation:**
   1. `vercel.json` z custom headers (CORS dla R2)
   2. Env var `VITE_R2_BASE_URL` pointing to R2 bucket
   3. Preview deploys per PR, production na main
   4. Custom domain (opcjonalne)
 - **DoD:**
-  - [ ] Vercel URL pokazuje globe
-  - [ ] 10-second hook działa na cold load
-  - [ ] Mobile responsive
+  - [x] Vercel URL pokazuje globe — https://terra-lens-zeta.vercel.app
+  - [x] 10-second hook działa na cold load
+  - [x] Mobile responsive (30fps fallback)
 
-### T9.3 — README + portfolio polish
+### T9.3 — README + portfolio polish ⟳ IN PROGRESS
 - **Dependencies:** T9.2
 - **Output:** `README.md` + `docs/` z GIFami
 - **Implementation:**
@@ -915,7 +915,7 @@ S5  Export PMTiles        [x] ✓ DONE 2026-04-28
 S6  Frontend PoC + Decision [x] ✓ DONE 2026-04-30
 S7  Frontend Build        [x] ✓ DONE 2026-05-02
 S8  10-Second Hook Polish [x] ✓ DONE 2026-05-02
-S9  Deploy Production     [ ] ⟳ IN PROGRESS
+S9  Deploy Production     [ ] ⟳ IN PROGRESS (T9.1✓ T9.2✓ T9.3⟳)
 ```
 
 **Estymaty czasowe (solo dev, part-time):**
