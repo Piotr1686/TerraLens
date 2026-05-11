@@ -1,59 +1,79 @@
 # last_session.md
 
-Sesja: 2026-05-03 · 10:00–21:10
-Status: ✓ Zakończona poprawnie
+Sesja: 2026-05-08 · 22:30-23:10
+Status: ✓ Zakończona poprawnie — pivot done, tile fix w toku
 
 ---
 
 ## ▸ NASTĘPNY KROK (zacznij tutaj)
 
-**Uruchom `terralens deploy --region dubai`, następnie `--region arctic`, a potem `git tag v0.1.0`.**
+**Dokończyć migrację tile scheme epsg4326 → epsg3857 w `useHeatmapLayer.ts` + `Globe.tsx`.**
 
-Konkretne komendy:
-```powershell
-& "C:\Users\plazo\miniconda3\envs\terralens\python.exe" -m terralens deploy --region dubai
-& "C:\Users\plazo\miniconda3\envs\terralens\python.exe" -m terralens deploy --region arctic
-git add src/terralens/fetchers/regions.py tests/test_regions.py frontend/src/hooks/useHeatmapLayer.ts src/terralens/__main__.py
-git commit -m "fix(T9.1): GIBS tile math lookup-table, NDVI date range 2025+, deploy encoding"
-git tag v0.1.0
+Konkretne zmiany (2 pliki):
+
+**`frontend/src/hooks/useHeatmapLayer.ts`:**
+```
+GIBS_BASE = 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best'
+
+GIBS_SSIM = `${GIBS_BASE}/MODIS_Terra_Land_Surface_Temp_Day/default/{date}/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png`
+GIBS_NDVI = `${GIBS_BASE}/MODIS_Terra_NDVI_8Day/default/{date}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.png`
+GIBS_CVA  = `${GIBS_BASE}/MODIS_Terra_CorrectedReflectance_Bands721/default/{date}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg`
+
+W TileLayer: minZoom: 1  (epsg3857 zoom=0 blank w GIBS)
+             maxZoom: 9
 ```
 
-Kontekst: T9.1 jest prawie gotowe — amazonia już na HF CDN (7 MB + 10 MB PMTiles + manifest). PMTiles dla dubai i arctic są w `data/export/` (po 7 MB i 10 MB), czekają tylko na upload. Po deploy wszystkich 3 regionów T9.1 jest zamknięte i można otagować v0.1.0.
+**`frontend/src/components/Globe.tsx`:**
+```
+W makeTileLayer: maxZoom: 7  →  maxZoom: 8
+```
+
+Kontekst: Deck.gl TileLayer używa OSM/Web Mercator tile scheme, a GIBS epsg4326 ma niekompatybilne tile dimensions (20×10 przy z=4 zamiast 16×16). Powoduje to wyświetlanie kafelki z innego kontynentu. Część Blue Marble już naprawiona — zostaje heatmapa i jeden parametr maxZoom. Po fixie: test wizualny (Amazonia/Dubai/Arctic) + `npm run build` + commit.
 
 ---
 
 ## Co zrobiono w tej sesji
 
-- ✓ **Fix `regions.py bbox_to_tiles`** — lookup-table `GIBS_MATRIX_WIDTHS/HEIGHTS` zastępuje błędne `2**(z+1)/2**z`. Zoom 6 = 80×40 (nie 128×64). Sygnatury `lon_to_col(lon, matrix_width)` i `lat_to_row(lat, matrix_height)` zmienione.
-- ✓ **Testy `test_regions.py` zaktualizowane** — 9/9 PASS. Dodano `test_gibs_z6_matrix_dimensions` i `test_zoom_out_of_range_raises`. Zaktualizowano wywołania `lon_to_col`/`lat_to_row` do nowego API.
-- ✓ **Odkrycie GIBS NDVI_8Day — daty 2025+** — zweryfikowane przez GetCapabilities: warstwa dostępna od 2025-02-12. Daty 2023/2024 zawsze HTTP 404.
-- ✓ **Fix `useHeatmapLayer.ts` DEMO_DATE** — zmieniony z `'2023-07-01'` na `'2025-07-15'` (działa dla TrueColor, NDVI_8Day i Bands721).
-- ✓ **Fix `__main__.py` encoding** — znak `→` w deploy output zastąpiony `->` (Windows cp1250 crashuje na U+2192).
-- ✓ **T9.1 fetch DONE** — 528 tile'ów, 0 błędów: HLS_RGB (2022-01-01..2022-06-01) + MODIS_NDVI (2025-03-01..2025-08-01) dla amazonia/dubai/arctic.
-- ✓ **T9.1 export DONE** — 6 PMTiles w `data/export/`: amazonia×2, dubai×2, arctic×2 (7 MB HLS_RGB + 10 MB MODIS_NDVI każdy).
-- ✓ **T9.1 deploy amazonia DONE** — `amazonia_v20260503_203956.pmtiles` (7 MB), `amazonia_v20260503_204038.pmtiles` (10 MB) + `manifest.json` na HF CDN.
+**Pivot (markery → ArrivalRing + HUD + chart):**
+- ✓ `Globe.tsx` — usunięto cały marker overlay: `_GlobeViewport`, `isOnFrontHemisphere`, `D2R`, `containerRef`, `ResizeObserver`, `markerPositions`, HTML overlay div
+- ✓ `ArrivalRing.tsx` — NOWY: CSS `@keyframes arrival-ring`, 2 koncentryczne złote pierścienie, re-animacja przez `key={arrivedRegion}`
+- ✓ `RegionHUD.tsx` — NOWY: top-right glassmorphism overlay z nazwą regionu + współrzędnymi, mounted/visible fade-in pattern
+- ✓ `StatsPanel.tsx` — dodano recharts `LineChart` z danymi NDVI/Urban/Ice per region (mock time-series 2015–2025)
+- ✓ `App.tsx` — wire-up `<ArrivalRing key={arrivedRegion} />` + `<RegionHUD region={arrivedRegionObj} />`
+- ✓ recharts zainstalowany (`--strict-ssl=false` workaround dla SSL w środowisku)
+- ✓ `npm run build` — zero TS errors
+
+**Diagnoza błędu tile scheme:**
+- ✓ Zdiagnozowano root cause "zbliżenia nie trafiają w regiony": deck.gl TileLayer = Web Mercator OSM scheme; GIBS epsg4326 = własne dimensions → mismatched → zły kontynent
+- ✓ `Globe.tsx` BLUE_MARBLE URL zmieniony: `epsg4326/500m` → `epsg3857/GoogleMapsCompatible_Level8`
+- ✓ Dodano wpis do MEMORY.md z regułą epsg3857
 
 ## Co zostało (backlog sesji)
 
-- ⧗ **Deploy dubai** — PMTiles gotowe w `data/export/`, czeka na `terralens deploy --region dubai`
-- ⧗ **Deploy arctic** — PMTiles gotowe w `data/export/`, czeka na `terralens deploy --region arctic`
-- ⧗ **`git commit` + `git tag v0.1.0`** — po zakończeniu deploy
-- ⧗ **`frontend/public/amazonia_preview.jpg`** — gradient CSS fallback działa, nie blokuje
+- ⚠ **FIX tile scheme NIEKOMPLETNY** — `useHeatmapLayer.ts` nadal epsg4326; `Globe.tsx` maxZoom nadal 7 — patrz NASTĘPNY KROK
+- ⧗ Test wizualny po tile fix — Amazonia/Dubai/Arctic kafelki trafiają?
+- ⧗ Dubai zoom=5 check — rozważyć zmianę na zoom=4 po tile fix
+- ⧗ `git commit` — `fix(T10.1): GIBS epsg3857` + `polish(S10): pivot markers→ArrivalRing`
+- ⧗ `git push origin master && git push origin v0.1.0`
+- ⧗ Demo GIF nagranie (po potwierdzeniu tile fix)
+- ⧗ README update — wstawić demo GIF
 
 ## Aktywne pliki
 
-- `src/terralens/fetchers/regions.py` — NAPRAWIONY: GIBS_MATRIX_WIDTHS/HEIGHTS + nowe sygnatury
-- `tests/test_regions.py` — ZAKTUALIZOWANY: 9 testów z nowym API
-- `frontend/src/hooks/useHeatmapLayer.ts` — ZMIENIONY: DEMO_DATE = '2025-07-15'
-- `src/terralens/__main__.py` — ZMIENIONY: `→` → `->` w deploy output
-- `data/export/` — 6 PMTiles gotowych (amazonia na HF CDN, dubai/arctic lokalnie)
+- `frontend/src/components/Globe.tsx` — pivot ✓; BLUE_MARBLE URL zmieniony na epsg3857; `maxZoom` jeszcze 7 (zmienić na 8)
+- `frontend/src/hooks/useHeatmapLayer.ts` — **WYMAGA FIX** — nadal epsg4326
+- `frontend/src/components/ArrivalRing.tsx` — NOWY ✓
+- `frontend/src/components/RegionHUD.tsx` — NOWY ✓
+- `frontend/src/components/StatsPanel.tsx` — recharts chart ✓
+- `frontend/src/App.tsx` — wire-up ✓
+- `frontend/src/data/regions.ts` — bez zmian
 
 ## Otwarte pytania
 
-- PMTiles export skanuje cały `data/tiles/{layer}/`, nie filtruje per region — każdy plik PMTiles zawiera tile'y wszystkich 3 regionów. Dla MVP OK (viewport ogranicza ładowanie), przy produkcji należy filtrować po bbox regionu.
-- Frontend `productionUrl` w `useHeatmapLayer.ts` oczekuje `{region}_{metric}_heatmap/{z}/{x}/{y}.png` (tile-per-file), nie PMTiles — brak pmtiles.js integracji. Demo mode GIBS działa poprawnie.
+- Czy `GoogleMapsCompatible_Level8` istnieje dla Blue Marble w GIBS epsg3857? (alternatywa: `EPSG3857_500m` lub `Level7`) — do weryfikacji przez test wizualny
+- PMTiles integracja z frontendem — odłożona na S11
+- StatsPanel stats hardcoded — `changes.json` z HF CDN nie fetchowany
 
 ## Do MEMORY.md (przeniesiono)
 
-- [2026-05-03] GIBS MODIS_Terra_NDVI_8Day dostępny tylko od 2025-02-12 (GetCapabilities)
-- [2026-05-03] Windows cp1250 crashuje na znakach spoza tablicy w Rich console — zastępować `->` zamiast `→`
+- [2026-05-08] **deck.gl TileLayer + GIBS: ZAWSZE epsg3857 + GoogleMapsCompatible** — epsg4326 ma niekompatybilne tile dimensions przy zoom ≥ 3; szczegóły i level mapping w MEMORY.md

@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Globe } from '@/components/Globe'
+import { REGIONS } from '@/data/regions'
+import { ArrivalRing } from '@/components/ArrivalRing'
+import { RegionHUD } from '@/components/RegionHUD'
 import { Timeline } from '@/components/Timeline'
 import { HeatmapControls } from '@/components/HeatmapControls'
 import { StatsPanel } from '@/components/StatsPanel'
@@ -62,15 +65,24 @@ function App() {
 
   const revealFraction = useRevealOpacity(arrivedRegion, 600, fps)
 
-  const { dates, dateIndex, tileUrl, setDateIndex } = useTimeline(manifestTimeline)
+  const { dates, dateIndex, currentDate, tileUrl, setDateIndex } = useTimeline(manifestTimeline)
+
+  const arrivedBbox = arrivedRegion
+    ? REGIONS.find((r) => r.id === arrivedRegion)?.bbox
+    : undefined
 
   const heatmapLayer = useHeatmapLayer({
     region: arrivedRegion,
     metric: heatmapMetric,
     opacity: heatmapOpacity * revealFraction,
+    bbox: arrivedBbox,
   })
 
   const flyTarget = isRunning ? (currentStep?.regionId ?? null) : undefined
+
+  const arrivedRegionObj = arrivedRegion
+    ? REGIONS.find((r) => r.id === arrivedRegion) ?? null
+    : null
 
   return (
     <div className="h-full w-full">
@@ -82,6 +94,8 @@ function App() {
         onRegionArrival={handleRegionArrival}
         fps={fps}
       />
+      {arrivedRegion && <ArrivalRing key={arrivedRegion} />}
+      <RegionHUD region={arrivedRegionObj} />
       <GuidedTour
         isRunning={isRunning}
         isComplete={isComplete}
@@ -99,7 +113,7 @@ function App() {
           onOpacityChange={setHeatmapOpacity}
         />
       )}
-      <StatsPanel regionId={selectedRegion} dateIndex={dateIndex} />
+      <StatsPanel regionId={selectedRegion} currentDate={currentDate} />
       <Preloader progress={progress} label={label} isReady={isReady} hasPreview={hasPreview} />
     </div>
   )

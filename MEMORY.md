@@ -9,6 +9,56 @@
 
 <!-- Claude dopisuje tutaj decyzje architektoniczne wraz z uzasadnieniem -->
 
+### [2026-05-08] deck.gl TileLayer + GIBS: używać TYLKO epsg3857 (GoogleMapsCompatible)
+
+- **Przyczyna błędu "kafelki w złym miejscu":** `deck.gl TileLayer` używa **OSM/Web Mercator tile scheme** (z=0 → 1 kafelka, z=4 → 16×16 kafelki) nawet w `_GlobeView`. Tymczasem GIBS `epsg4326` używa **własnych tile dimensions** (z=4 → 20×10 kafelki). Mismatched indices → GIBS serwuje kafelkę z innego obszaru geograficznego, deck.gl renderuje ją w złym miejscu.
+- **Fix:** Używać zawsze `epsg3857/best` z tilematrixset `GoogleMapsCompatible_Level{N}`:
+  - 250m layers (NDVI, TrueColor, Bands721) → `GoogleMapsCompatible_Level9`, ext `.png`/`.jpg`
+  - 500m layers (Blue Marble) → `GoogleMapsCompatible_Level8`, ext `.jpg`
+  - 1km layers (LST) → `GoogleMapsCompatible_Level7`, ext `.png`
+- **Znane ograniczenie:** GIBS epsg3857 zwraca **blank tile przy zoom=0** (known GIBS bug). Ustawić `minZoom: 1` w TileLayer.
+- **Distorsja:** Web Mercator tiles mają zniekształcenia przy wysokich szerokościach (Arctic 72°N = 3-4× stretch). Geograficznie poprawne, wizualnie akceptowalne dla demo.
+- **NIE używać:** `epsg4326` z deck.gl TileLayer — zawsze błędne tile placement przy zoom ≥ 3.
+
+### [2026-05-06] GlobeView BitmapLayer seam fix — _imageCoordinateSystem: COORDINATE_SYSTEM.LNGLAT
+
+- **Problem:** `TileLayer` + `BitmapLayer` w `_GlobeView` bez `_imageCoordinateSystem` → czarne kliny/szwy między kafelkami, glob wygląda jak rozcięta pomarańcza.
+- **Fix:** Dodać `_imageCoordinateSystem: COORDINATE_SYSTEM.LNGLAT` do każdego `BitmapLayer` wewnątrz `renderSubLayers` zarówno w `Globe.tsx` jak i `useHeatmapLayer.ts`.
+- **Import:** `import { COORDINATE_SYSTEM } from '@deck.gl/core'`
+- **Scope:** Dotyczy KAŻDEGO `TileLayer+BitmapLayer` w GlobeView — bez tego sfera wygląda jak kopuła z pasami.
+
+### [2026-05-06] GlobeView ScatterplotLayer/TextLayer — bug pozycjonowania w deck.gl 9.3.1
+
+- **Problem:** `ScatterplotLayer` i `TextLayer` renderują punkty w ZŁYCH geograficznych pozycjach w `_GlobeView`. Markery "przebijają" sferę lub lądują w zupełnie innym miejscu niż [longitude, latitude]. Bug pre-existing — nie do naprawienia przez `coordinateSystem: COORDINATE_SYSTEM.LNGLAT`, `farZMultiplier`, zoom, ani hemisphere culling filter.
+- **Próby:** explicit `coordinateSystem`, `visibleRegions` dot-product filter, zoom revert — żadna nie poprawia pozycji.
+- **Rozwiązanie:** Używać `GeoJsonLayer` zamiast `ScatterplotLayer`/`TextLayer` dla markerów geograficznych w GlobeView. GeoJsonLayer ma natywną, certyfikowaną obsługę `_GlobeView`.
+- **Alternatywa:** HTML overlay — `<div>` pozycjonowane przez `viewport.project([lon, lat])` (deck.gl viewport API).
+- **Nie używać:** `ScatterplotLayer`, `TextLayer`, `IconLayer` bez weryfikacji w `_GlobeView` — mogą mieć ten sam bug.
+- **UPDATE 2026-05-07:** Patrz wpis poniżej — bug okazuje się fundamentalny, NAWET `GeoJsonLayer` i `viewport.project()` zawodzą.
+
+### [2026-05-07] GlobeView marker bug deck.gl 9.3.1 — FUNDAMENTALNY (zaktualizowane)
+
+- **Skala problemu:** Bug pozycjonowania `_GlobeView` w deck.gl 9.3.1 afektuje WSZYSTKIE warstwy markerowe ORAZ API projekcji. Spędzona ~3h debugowania.
+- **Co NIE działa (zweryfikowane):**
+  1. `ScatterplotLayer` — markery w złych miejscach
+  2. `TextLayer` — j.w.
+  3. `GeoJsonLayer` (z `pointType: 'circle+text'`) — j.w. (NIE jest workaroundem mimo wcześniejszej rekomendacji deck.gl docs)
+  4. HTML overlay z `viewport.project([lon, lat])` przez `deckRef.current.getViewports()[0]` w `onAfterRender` — RAF timing lag, markery "pływają" po globie
+  5. HTML overlay z manualną projekcją perspektywiczną wyprowadzoną z `globe-viewport.ts` source (`lookAt([0,-alt,0]) * RX(lat) * RZ(-lon) * Scale(s/h)`, `f = 2*alt = 3`, `fh = alt*height`) — numerycznie zweryfikowana, user nadal "źle"
+  6. HTML overlay z `_GlobeViewport.project()` instancjonowanym w `useMemo([viewState, canvasSize])` — używa **identycznego kodu** co deck.gl wewnętrznie, user nadal "źle"
+- **Decyzja architektoniczna:** Zero markerów geograficznych na globie. Pivot na:
+  - **Bottom button bar** + GuidedTour jako jedyna nawigacja regionów
+  - **`<ArrivalRing />`** — animowany pierścień na środku ekranu po przylocie kamery (pozycja zawsze idealna, bo środek ekranu = miejsce lądowania kamery)
+  - **`<RegionHUD />`** — overlay w prawym górnym rogu z label + coords aktywnego regionu
+  - **Real chart w StatsPanel** (recharts/visx) — time-series NDVI/SST/NDBI; więcej "ambitności" niż statyczne kropki na globie
+- **Reguła:** Nie próbować markerów na `_GlobeView` w deck.gl 9.3.1 — zmarnowany czas. Jeśli przyszłość wymusi markery → R3F z prawdziwymi 3D obiektami na sferze (custom three.js) lub upgrade deck.gl gdy fix.
+
+### [2026-05-06] Vite Fast Refresh — nie mieszać eksportów komponent + dane w jednym pliku
+
+- **Problem:** Plik React z eksportem komponentu (`Globe`) ORAZ non-komponentu (`REGIONS`) triggeruje `hmr invalidate` z komunikatem "Could not Fast Refresh". Vite wykonuje full page reload zamiast hot swap.
+- **Fix:** Przenieść dane/stałe do osobnego pliku (np. `src/data/regions.ts`). Komponent importuje z tego pliku. Fast Refresh działa poprawnie.
+- **Scope:** Każdy plik `*.tsx` który eksportuje zarówno komponent jak i stałe/typy powinien mieć stałe/typy w osobnym `.ts`.
+
 ### [2026-05-02] T9.2 DONE — Vercel deploy: vercel.json w frontend/, nie w root
 
 - **Gotcha monorepo:** Vercel auto-wykrywa `frontend/` jako Root Directory (bo tam jest `package.json` + `vite.config.ts`). `vercel.json` w root z `buildCommand: "cd frontend && ..."` failuje — `cd frontend` nie istnieje gdy CWD = `frontend/`.

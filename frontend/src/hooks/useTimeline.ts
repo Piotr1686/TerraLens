@@ -1,12 +1,14 @@
 import { useState, useMemo } from 'react'
 
+// epsg3857 (GoogleMapsCompatible) — tile scheme zgodny z deck.gl TileLayer (Web Mercator OSM).
+// epsg4326 powodowało "map on map" — base tiles trafiały w zły kontynent względem heatmapy.
 const HLS_RGB_URL =
-  'https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/' +
-  'MODIS_Terra_CorrectedReflectance_TrueColor/default/{date}/250m/{z}/{y}/{x}.jpg'
+  'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/' +
+  'MODIS_Terra_CorrectedReflectance_TrueColor/default/{date}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg'
 
 const BLUE_MARBLE_URL =
-  'https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/' +
-  'BlueMarble_NextGeneration/default/500m/{z}/{y}/{x}.jpeg'
+  'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/' +
+  'BlueMarble_NextGeneration/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpg'
 
 // Demo daty — miesięczne klatki 2015 do bieżącego miesiąca
 function buildDemoDates(): string[] {

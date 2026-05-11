@@ -868,9 +868,9 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
   2. Nagraj screencast GIF: `scripts/record_demo.md` jak to zrobić
   3. Dodaj link do NeuroMosaic w README (cross-link projektów portfolio)
 - **DoD:**
-  - [ ] README wygląda profesjonalnie
-  - [ ] GIF < 5MB, autoplay w GitHub markdown
-  - [ ] Repo publiczne na GitHubie: `github.com/Piotr1686/terralens`
+  - [x] README wygląda profesjonalnie (badges, mermaid, quick start, license, HF CDN)
+  - [ ] GIF < 5MB, autoplay w GitHub markdown — do nagrania manualnie (scripts/record_demo.md)
+  - [x] Repo publiczne na GitHubie: https://github.com/Piotr1686/TerraLens
 
 **🏁 Sprint 9 complete when:** T9.1–T9.3 all ✓. Commit: `release: TerraLens v0.1.0 MVP`
 

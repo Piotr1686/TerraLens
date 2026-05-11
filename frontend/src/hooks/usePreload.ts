@@ -5,7 +5,7 @@ const HF_MANIFEST_URL =
 
 // Jeden kafelek Blue Marble (zoom 0) — trafia do cache przeglądarki zanim TileLayer go poprosi
 const BLUE_MARBLE_TILE_0 =
-  'https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/BlueMarble_NextGeneration/default/500m/0/0/0.jpeg'
+  'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_NextGeneration/default/GoogleMapsCompatible_Level8/0/0/0.jpg'
 
 // Statyczny podgląd Amazonii wyświetlany w tle Preloadera podczas ładowania
 // Plik: frontend/public/amazonia_preview.jpg — brak pliku = gradient CSS jako fallback
