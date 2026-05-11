@@ -1,13 +1,23 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
+
+const HF_BASE = 'https://huggingface.co/datasets/Piotr1686/terralens-data/resolve/main'
 
 interface RegionStats {
   primary: { value: string; label: string; trend: 'up' | 'down' | 'neutral' }
   secondary: { label: string; value: string; color: string }[]
 }
 
-// Demo dane; docelowo fetch z changes.json per region z HF CDN
-const REGION_STATS: Record<string, RegionStats> = {
+interface ChangesPayload {
+  [regionId: string]: {
+    primary: RegionStats['primary']
+    secondary: RegionStats['secondary']
+    chart: { year: number; v: number }[]
+    chartMeta: { label: string; color: string }
+  }
+}
+
+const MOCK_STATS: Record<string, RegionStats> = {
   amazonia: {
     primary: { value: '−34%', label: 'vegetation', trend: 'down' },
     secondary: [
@@ -34,7 +44,7 @@ const REGION_STATS: Record<string, RegionStats> = {
   },
 }
 
-const CHART_DATA: Record<string, { year: number; v: number }[]> = {
+const MOCK_CHART_DATA: Record<string, { year: number; v: number }[]> = {
   amazonia: [
     { year: 2015, v: 0.72 }, { year: 2017, v: 0.68 }, { year: 2019, v: 0.61 },
     { year: 2021, v: 0.54 }, { year: 2023, v: 0.48 }, { year: 2025, v: 0.42 },
@@ -49,10 +59,27 @@ const CHART_DATA: Record<string, { year: number; v: number }[]> = {
   ],
 }
 
-const CHART_META: Record<string, { label: string; color: string }> = {
+const MOCK_CHART_META: Record<string, { label: string; color: string }> = {
   amazonia: { label: 'NDVI', color: '#4ade80' },
   dubai:    { label: 'Urban index', color: '#fb923c' },
   arctic:   { label: 'Ice extent (M km²)', color: '#67e8f9' },
+}
+
+function useChanges() {
+  const [payload, setPayload] = useState<ChangesPayload | null>(null)
+  const [isLive, setIsLive] = useState(false)
+  const fetched = useRef(false)
+
+  useEffect(() => {
+    if (fetched.current) return
+    fetched.current = true
+    fetch(`${HF_BASE}/changes.json`)
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then((data: ChangesPayload) => { setPayload(data); setIsLive(true) })
+      .catch(() => { /* fallback: mock data stays active */ })
+  }, [])
+
+  return { payload, isLive }
 }
 
 interface Props {
@@ -63,6 +90,7 @@ interface Props {
 export function StatsPanel({ regionId, currentDate }: Props) {
   const [mounted, setMounted] = useState(false)
   const [visible, setVisible] = useState(false)
+  const { payload, isLive } = useChanges()
 
   useEffect(() => {
     if (regionId) {
@@ -77,8 +105,14 @@ export function StatsPanel({ regionId, currentDate }: Props) {
 
   if (!mounted || !regionId) return null
 
-  const stats = REGION_STATS[regionId]
+  const regionData = payload?.[regionId]
+  const stats: RegionStats = regionData
+    ? { primary: regionData.primary, secondary: regionData.secondary }
+    : (MOCK_STATS[regionId] ?? null)
   if (!stats) return null
+
+  const chartData = regionData?.chart ?? MOCK_CHART_DATA[regionId]
+  const chartMeta = regionData?.chartMeta ?? MOCK_CHART_META[regionId]
 
   const { primary, secondary } = stats
   const endYear = currentDate ? currentDate.slice(0, 4) : new Date().getFullYear().toString()
@@ -101,7 +135,7 @@ export function StatsPanel({ regionId, currentDate }: Props) {
       >
         <PanelContent
           primary={primary} trendColor={trendColor} period={period}
-          secondary={secondary} regionId={regionId}
+          secondary={secondary} chartData={chartData} chartMeta={chartMeta} isLive={isLive}
         />
       </div>
 
@@ -118,7 +152,7 @@ export function StatsPanel({ regionId, currentDate }: Props) {
       >
         <PanelContent
           primary={primary} trendColor={trendColor} period={period}
-          secondary={secondary} regionId={regionId}
+          secondary={secondary} chartData={chartData} chartMeta={chartMeta} isLive={isLive}
         />
       </div>
     </>
@@ -145,13 +179,12 @@ interface PanelContentProps {
   trendColor: string
   period: string
   secondary: RegionStats['secondary']
-  regionId: string
+  chartData: { year: number; v: number }[] | undefined
+  chartMeta: { label: string; color: string } | undefined
+  isLive: boolean
 }
 
-function PanelContent({ primary, trendColor, period, secondary, regionId }: PanelContentProps) {
-  const chartData = CHART_DATA[regionId]
-  const meta = CHART_META[regionId]
-
+function PanelContent({ primary, trendColor, period, secondary, chartData, chartMeta, isLive }: PanelContentProps) {
   return (
     <>
       <p className="text-xs font-semibold uppercase tracking-wider text-white/50">Change {period}</p>
@@ -172,10 +205,10 @@ function PanelContent({ primary, trendColor, period, secondary, regionId }: Pane
         ))}
       </div>
 
-      {chartData && meta && (
+      {chartData && chartMeta && (
         <>
           <div className="h-px bg-white/10" />
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-white/40">{meta.label}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-white/40">{chartMeta.label}</p>
           <div className="h-20">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData} margin={{ top: 2, right: 4, bottom: 0, left: -28 }}>
@@ -196,7 +229,7 @@ function PanelContent({ primary, trendColor, period, secondary, regionId }: Pane
                 <Line
                   type="monotone"
                   dataKey="v"
-                  stroke={meta.color}
+                  stroke={chartMeta.color}
                   strokeWidth={2}
                   dot={false}
                   isAnimationActive
@@ -207,7 +240,9 @@ function PanelContent({ primary, trendColor, period, secondary, regionId }: Pane
         </>
       )}
 
-      <p className="text-[10px] text-white/30">MODIS · HLS · CVA · demo data</p>
+      <p className="text-[10px] text-white/30">
+        MODIS · HLS · CVA · {isLive ? 'live data' : 'demo data'}
+      </p>
     </>
   )
 }
