@@ -65,7 +65,7 @@ Tylko gdy:
 | **S6** | **Frontend PoC (DECISION GATE)** | T3 | ⧗ |
 | **S7** | Frontend build (wybrany silnik) | T3–T4 | ✓ DONE (2026-05-02) |
 | **S8** | 10-Second Hook polish + preloader | T4 | ✓ DONE (2026-05-02) |
-| **S9** | Deploy (HF CDN + Vercel) + 3 regiony | T5 | ⟳ IN PROGRESS |
+| **S9** | Deploy (HF CDN + Vercel) + 3 regiony | T5 | ✓ DONE (2026-05-11) |
 
 Legenda: ✓ DONE · ⟳ IN PROGRESS · ⧗ TODO · ✗ BLOCKED
 
@@ -853,7 +853,7 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
   - [x] 10-second hook działa na cold load
   - [x] Mobile responsive (30fps fallback)
 
-### T9.3 — README + portfolio polish ⟳ IN PROGRESS
+### T9.3 — README + portfolio polish ✓ DONE (2026-05-11)
 - **Dependencies:** T9.2
 - **Output:** `README.md` + `docs/` z GIFami
 - **Implementation:**
@@ -869,7 +869,7 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
   3. Dodaj link do NeuroMosaic w README (cross-link projektów portfolio)
 - **DoD:**
   - [x] README wygląda profesjonalnie (badges, mermaid, quick start, license, HF CDN)
-  - [ ] GIF < 5MB, autoplay w GitHub markdown — do nagrania manualnie (scripts/record_demo.md)
+  - [x] GIF < 5MB, autoplay w GitHub markdown — do nagrania manualnie (scripts/record_demo.md)
   - [x] Repo publiczne na GitHubie: https://github.com/Piotr1686/TerraLens
 
 **🏁 Sprint 9 complete when:** T9.1–T9.3 all ✓. Commit: `release: TerraLens v0.1.0 MVP`
@@ -915,7 +915,7 @@ S5  Export PMTiles        [x] ✓ DONE 2026-04-28
 S6  Frontend PoC + Decision [x] ✓ DONE 2026-04-30
 S7  Frontend Build        [x] ✓ DONE 2026-05-02
 S8  10-Second Hook Polish [x] ✓ DONE 2026-05-02
-S9  Deploy Production     [ ] ⟳ IN PROGRESS (T9.1✓ T9.2✓ T9.3⟳)
+S9  Deploy Production     [x] ✓ DONE 2026-05-11
 ```
 
 **Estymaty czasowe (solo dev, part-time):**

@@ -11,7 +11,7 @@
 
 ---
 
-<!-- Replace with: ![TerraLens demo](docs/terralens_demo.gif) once recorded (see scripts/record_demo.md) -->
+![TerraLens demo](docs/terralens_demo_small.gif)
 
 ## Live Demo
 
