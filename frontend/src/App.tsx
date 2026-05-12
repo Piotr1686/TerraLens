@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Globe } from '@/components/Globe'
 import { REGIONS } from '@/data/regions'
 import { ArrivalRing } from '@/components/ArrivalRing'
@@ -10,6 +10,7 @@ import { GuidedTour } from '@/components/GuidedTour'
 import { Preloader } from '@/components/Preloader'
 import { useTimeline } from '@/hooks/useTimeline'
 import { useHeatmapLayer } from '@/hooks/useHeatmapLayer'
+import { usePMTilesLayer } from '@/hooks/usePMTilesLayer'
 import { useTour } from '@/hooks/useTour'
 import { usePreload } from '@/hooks/usePreload'
 import { useRevealOpacity } from '@/hooks/useRevealOpacity'
@@ -71,6 +72,22 @@ function App() {
     ? REGIONS.find((r) => r.id === arrivedRegion)?.bbox
     : undefined
 
+  const HF_BASE = 'https://huggingface.co/datasets/Piotr1686/terralens-data/resolve/main'
+
+  const pmtilesUrl = useMemo(() => {
+    if (!arrivedRegion || !manifest) return null
+    const m = manifest as { regions?: Record<string, { latest?: string }> }
+    const latest = m?.regions?.[arrivedRegion]?.latest
+    return latest ? `${HF_BASE}/${latest}` : null
+  }, [arrivedRegion, manifest])
+
+  const pmtilesLayer = usePMTilesLayer({
+    region: arrivedRegion,
+    pmtilesUrl,
+    opacity: 0.9 * revealFraction,
+    bbox: arrivedBbox,
+  })
+
   const heatmapLayer = useHeatmapLayer({
     region: arrivedRegion,
     metric: heatmapMetric,
@@ -88,7 +105,7 @@ function App() {
     <div className="h-full w-full">
       <Globe
         tileUrl={tileUrl}
-        extraLayers={heatmapLayer ? [heatmapLayer] : []}
+        extraLayers={[...(pmtilesLayer ? [pmtilesLayer] : []), ...(heatmapLayer ? [heatmapLayer] : [])]}
         flyTarget={flyTarget}
         onRegionSelect={handleRegionSelect}
         onRegionArrival={handleRegionArrival}
