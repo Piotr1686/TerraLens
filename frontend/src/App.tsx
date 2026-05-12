@@ -81,7 +81,7 @@ function App() {
     return latest ? `${HF_BASE}/${latest}` : null
   }, [arrivedRegion, manifest])
 
-  const pmtilesLayer = usePMTilesLayer({
+  const pmtilesLayers = usePMTilesLayer({
     region: arrivedRegion,
     pmtilesUrl,
     opacity: 0.9 * revealFraction,
@@ -105,7 +105,7 @@ function App() {
     <div className="h-full w-full">
       <Globe
         tileUrl={tileUrl}
-        extraLayers={[...(pmtilesLayer ? [pmtilesLayer] : []), ...(heatmapLayer ? [heatmapLayer] : [])]}
+        extraLayers={[...pmtilesLayers, ...(heatmapLayer ? [heatmapLayer] : [])]}
         flyTarget={flyTarget}
         onRegionSelect={handleRegionSelect}
         onRegionArrival={handleRegionArrival}
