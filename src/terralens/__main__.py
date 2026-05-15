@@ -111,10 +111,102 @@ def fetch(
 @app.command()
 def process(
     region: str = typer.Option("amazonia", help="Region do przetworzenia."),
+    layer: str = typer.Option("HLS_RGB", help="Warstwa źródłowa (HLS_RGB/MODIS_NDVI)."),
+    zoom: int = typer.Option(6, help="Poziom zoomu (filtr tile'ów po bbox regionu)."),
     force: bool = typer.Option(False, help="Wymuś ponowne przetworzenie."),
 ) -> None:
-    """Przetwarza pobrane dane (Satlas ESRGAN SR, SSIM change detection, NDVI diff)."""
-    console.print("[yellow]Not implemented yet[/yellow]")
+    """Uruchamia Satlas ESRGAN 4x SR na pobranych tile'ach -> {layer}_SR/."""
+    import gc
+
+    import numpy as np
+    import torch
+    from PIL import Image
+
+    from terralens.config import get_config
+    from terralens.engines.satlas_esrgan import get_esrgan
+    from terralens.export.pmtiles import scan_tiles
+    from terralens.fetchers.regions import region_tiles
+
+    cfg = get_config()
+    src_dir = cfg.data_dir / "tiles" / layer
+    dst_dir = cfg.data_dir / "tiles" / f"{layer}_SR"
+
+    if not src_dir.exists():
+        console.print(f"[red]Brak tile'ów w:[/red] {src_dir} (uruchom: terralens fetch)")
+        raise typer.Exit(1)
+
+    try:
+        region_set = {(x, y) for _, x, y in region_tiles(region, zoom)}
+    except ValueError as exc:
+        console.print(f"[red]Błąd:[/red] {exc}")
+        raise typer.Exit(1)
+
+    all_tiles = scan_tiles(src_dir)
+    tiles = [(z, x, y, p) for z, x, y, p in all_tiles if z == zoom and (x, y) in region_set]
+
+    if not tiles:
+        console.print(
+            f"[yellow]Brak tile'ów dla regionu {region!r} zoom={zoom} w:[/yellow] {src_dir}"
+        )
+        raise typer.Exit(1)
+
+    console.print(
+        f"[cyan]ESRGAN 4×:[/cyan] {len(tiles)} tile'ów | "
+        f"[cyan]Źródło:[/cyan] {layer} → [cyan]Cel:[/cyan] {layer}_SR"
+    )
+
+    esrgan = get_esrgan()
+    esrgan.load()
+
+    ok = skipped = err = 0
+
+    with Progress(
+        SpinnerColumn(),
+        "[progress.description]{task.description}",
+        BarColumn(),
+        MofNCompleteColumn(),
+        TimeRemainingColumn(),
+        console=console,
+        transient=False,
+    ) as progress:
+        task = progress.add_task("ESRGAN SR...", total=len(tiles))
+
+        for i, (z, x, y, src_path) in enumerate(tiles):
+            if _INTERRUPTED:
+                break
+
+            rel = src_path.relative_to(src_dir)
+            dst_path = (dst_dir / rel).with_suffix(".webp")
+
+            if not force and dst_path.exists():
+                skipped += 1
+                progress.advance(task)
+                continue
+
+            try:
+                arr = np.array(Image.open(src_path).convert("RGB"), dtype=np.float32) / 255.0
+                sr = esrgan.upscale(arr)
+                dst_path.parent.mkdir(parents=True, exist_ok=True)
+                Image.fromarray((sr * 255).clip(0, 255).astype(np.uint8)).save(
+                    dst_path, format="WEBP", quality=85, method=4
+                )
+                ok += 1
+            except Exception as exc:  # noqa: BLE001
+                err += 1
+                console.log(f"[red]BŁĄD[/red] {src_path}: {exc}")
+            finally:
+                progress.advance(task)
+
+            if (i + 1) % cfg.empty_cache_every_n_tiles == 0:
+                torch.cuda.empty_cache()
+                gc.collect()
+
+    esrgan.unload()
+    console.print(
+        f"[green]SR:[/green] {ok}  [yellow]Pominięto:[/yellow] {skipped}  [red]Błędy:[/red] {err}"
+    )
+    if err:
+        raise typer.Exit(1)
 
 
 @app.command()
