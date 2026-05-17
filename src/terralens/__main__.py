@@ -58,9 +58,14 @@ def fetch(
 ) -> None:
     """Pobiera tile'y NASA GIBS dla regionu i zakresu dat (monthly)."""
     import requests
+    import urllib3
+    import urllib3.exceptions
 
     from terralens.fetchers.gibs import fetch_tile
     from terralens.fetchers.regions import region_tiles
+
+    # NASA GIBS używa intermediate certa którego certifi nie zawsze rozpoznaje na Windows
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
     try:
         zoom_levels = [int(z.strip()) for z in zoom.split(",")]
@@ -82,6 +87,7 @@ def fetch(
     )
 
     sess = requests.Session()
+    sess.verify = False
     ok = err = skipped = 0
 
     with Progress(

@@ -6,6 +6,7 @@ import logging
 import time
 from pathlib import Path
 
+import certifi
 import requests
 
 from terralens.config import get_config
@@ -78,7 +79,11 @@ def fetch_tile(
                 return Path(cached["filepath"])
 
         url = tile_url(layer, date, z, y, x)
-        sess = session or requests.Session()
+        if session is None:
+            sess = requests.Session()
+            sess.verify = certifi.where()
+        else:
+            sess = session
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         _download_with_retry(sess, url, output_path)
