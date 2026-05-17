@@ -23,12 +23,14 @@ interface Props {
   flyTarget?: string | null
   onRegionSelect?: (regionId: string | null) => void
   onRegionArrival?: (regionId: string) => void
+  onViewZoomChange?: (zoom: number) => void
   fps?: number
 }
 
-export function Globe({ tileUrl = BLUE_MARBLE, extraLayers = [], flyTarget, onRegionSelect, onRegionArrival, fps = 60 }: Props) {
+export function Globe({ tileUrl = BLUE_MARBLE, extraLayers = [], flyTarget, onRegionSelect, onRegionArrival, onViewZoomChange, fps = 60 }: Props) {
   const [viewState, setViewState] = useState<MapViewState>(INITIAL_VIEW)
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
+  const lastReportedZoom = useRef(INITIAL_VIEW.zoom)
 
   const { fly: cinematicFly, cancel: cancelFlight, setPosition: setFlightPos } = useCinematicFlight()
 
@@ -110,6 +112,11 @@ export function Globe({ tileUrl = BLUE_MARBLE, extraLayers = [], flyTarget, onRe
           if (s.isDragging || s.isZooming || s.isPanning || s.isRotating) cancelFlight()
           setFlightPos(vs as MapViewState)
           setViewState(vs as MapViewState)
+          const newZoom = (vs as MapViewState).zoom ?? 0
+          if (onViewZoomChange && Math.abs(newZoom - lastReportedZoom.current) >= 0.5) {
+            lastReportedZoom.current = newZoom
+            onViewZoomChange(newZoom)
+          }
         }}
         controller
         layers={layers}

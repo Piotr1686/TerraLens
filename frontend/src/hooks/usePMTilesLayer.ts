@@ -23,14 +23,24 @@ async function resolveRedirect(url: string): Promise<string> {
   }
 }
 
-// GIBS EPSG:4326 250m TileMatrixSet — pipeline fetchuje tylko zoom 6.
-const GIBS_ZOOM = 6
-const GIBS_MW = 80
-const GIBS_MH = 40
+// GIBS EPSG:4326 TileMatrixSet — wymiary macierzy per poziom zoomu.
+const GIBS_MATRIX: Record<number, { w: number; h: number }> = {
+  6: { w: 80, h: 40 },
+  7: { w: 160, h: 80 },
+  8: { w: 320, h: 160 },
+}
+
+// Mapowanie viewport zoom (deck.gl GlobeView) → poziom zoomu GIBS do załadowania.
+export function pickGibsZoom(viewportZoom: number): number {
+  if (viewportZoom >= 7.5) return 8
+  if (viewportZoom >= 5.5) return 7
+  return 6
+}
 
 interface TileImage {
   x: number
   y: number
+  z: number
   bounds: [number, number, number, number]
   image: ImageBitmap
 }
@@ -40,38 +50,48 @@ interface Config {
   pmtilesUrl: string | null
   opacity: number
   bbox?: [number, number, number, number]
+  viewportZoom?: number
 }
 
-export function usePMTilesLayer({ region, pmtilesUrl, opacity, bbox }: Config): Layer[] {
+export function usePMTilesLayer({ region, pmtilesUrl, opacity, bbox, viewportZoom }: Config): Layer[] {
   const [resolvedUrl, setResolvedUrl] = useState<string | null>(null)
   const [tiles, setTiles] = useState<TileImage[]>([])
+
+  const gibsZoom = useMemo(() => pickGibsZoom(viewportZoom ?? 4), [viewportZoom])
 
   useEffect(() => {
     if (!pmtilesUrl) { setResolvedUrl(null); return }
     resolveRedirect(pmtilesUrl).then(setResolvedUrl)
   }, [pmtilesUrl])
 
+  // Czyść tile'y przy zmianie regionu lub źródła — nie przy zmianie gibsZoom (fallback).
   useEffect(() => {
     setTiles([])
+  }, [resolvedUrl, region])
+
+  useEffect(() => {
     if (!resolvedUrl || !region || !bbox) return
     let cancelled = false
+
     const archive = getArchive(resolvedUrl)
     const [lngMin, latMin, lngMax, latMax] = bbox
-    const xMin = Math.max(0, Math.floor((lngMin + 180) / 360 * GIBS_MW))
-    const xMax = Math.min(GIBS_MW - 1, Math.floor((lngMax + 180) / 360 * GIBS_MW))
-    const yMin = Math.max(0, Math.floor((90 - latMax) / 180 * GIBS_MH))
-    const yMax = Math.min(GIBS_MH - 1, Math.floor((90 - latMin) / 180 * GIBS_MH))
+    const { w: mw, h: mh } = GIBS_MATRIX[gibsZoom] ?? GIBS_MATRIX[6]
+
+    const xMin = Math.max(0, Math.floor((lngMin + 180) / 360 * mw))
+    const xMax = Math.min(mw - 1, Math.floor((lngMax + 180) / 360 * mw))
+    const yMin = Math.max(0, Math.floor((90 - latMax) / 180 * mh))
+    const yMax = Math.min(mh - 1, Math.floor((90 - latMin) / 180 * mh))
 
     const loadTile = async (x: number, y: number): Promise<TileImage | null> => {
       try {
-        const result = await archive.getZxy(GIBS_ZOOM, x, y)
+        const result = await archive.getZxy(gibsZoom, x, y)
         if (!result?.data) return null
         const image = await createImageBitmap(new Blob([result.data], { type: 'image/webp' }))
-        const tLngMin = x / GIBS_MW * 360 - 180
-        const tLngMax = (x + 1) / GIBS_MW * 360 - 180
-        const tLatMax = 90 - y / GIBS_MH * 180
-        const tLatMin = 90 - (y + 1) / GIBS_MH * 180
-        return { x, y, image, bounds: [tLngMin, tLatMin, tLngMax, tLatMax] }
+        const tLngMin = x / mw * 360 - 180
+        const tLngMax = (x + 1) / mw * 360 - 180
+        const tLatMax = 90 - y / mh * 180
+        const tLatMin = 90 - (y + 1) / mh * 180
+        return { x, y, z: gibsZoom, image, bounds: [tLngMin, tLatMin, tLngMax, tLatMax] }
       } catch {
         return null
       }
@@ -86,16 +106,18 @@ export function usePMTilesLayer({ region, pmtilesUrl, opacity, bbox }: Config): 
 
     Promise.all(promises).then((results) => {
       if (cancelled) return
-      setTiles(results.filter((t): t is TileImage => t !== null))
+      const fetched = results.filter((t): t is TileImage => t !== null)
+      // Gdy archiwum nie ma danego poziomu zoomu — zachowaj poprzednie tile'y (fallback).
+      if (fetched.length > 0) setTiles(fetched)
     })
 
     return () => { cancelled = true }
-  }, [resolvedUrl, region, bbox])
+  }, [resolvedUrl, region, bbox, gibsZoom])
 
   return useMemo(() => {
     if (!region || tiles.length === 0 || opacity === 0) return []
     return tiles.map((t) => new BitmapLayer({
-      id: `pmtiles-${region}-${t.x}-${t.y}`,
+      id: `pmtiles-${region}-z${t.z}-${t.x}-${t.y}`,
       image: t.image,
       bounds: t.bounds,
       opacity,

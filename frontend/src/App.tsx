@@ -23,6 +23,7 @@ function App() {
   const [manifestTimeline, setManifestTimeline] = useState<string[] | undefined>()
   const [heatmapMetric, setHeatmapMetric] = useState<HeatmapMetric>('ndvi')
   const [heatmapOpacity, setHeatmapOpacity] = useState(0.6)
+  const [viewportZoom, setViewportZoom] = useState(1.0)
 
   const isMobile = useMediaQuery('(max-width: 768px)')
   const fps = isMobile ? 30 : 60
@@ -86,6 +87,7 @@ function App() {
     pmtilesUrl,
     opacity: 0.9 * revealFraction,
     bbox: arrivedBbox,
+    viewportZoom,
   })
 
   const heatmapLayer = useHeatmapLayer({
@@ -109,6 +111,7 @@ function App() {
         flyTarget={flyTarget}
         onRegionSelect={handleRegionSelect}
         onRegionArrival={handleRegionArrival}
+        onViewZoomChange={setViewportZoom}
         fps={fps}
       />
       {arrivedRegion && <ArrivalRing key={arrivedRegion} />}

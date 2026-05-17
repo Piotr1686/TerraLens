@@ -51,7 +51,9 @@ def fetch(
     start_date: str = typer.Option("2015-01-01", help="Data początkowa YYYY-MM-DD."),
     end_date: str = typer.Option("2024-12-31", help="Data końcowa YYYY-MM-DD."),
     layer: str = typer.Option("MODIS_NDVI", help="Warstwa (HLS_RGB/MODIS_NDVI)."),
-    zoom: int = typer.Option(6, help="Poziom zoomu WMTS."),
+    zoom: str = typer.Option(
+        "6", help="Poziomy zoomu WMTS, lista rozdzielona przecinkami (np. '6,7,8')."
+    ),
     force: bool = typer.Option(False, help="Wymuś pobranie mimo ważnego cache."),
 ) -> None:
     """Pobiera tile'y NASA GIBS dla regionu i zakresu dat (monthly)."""
@@ -61,16 +63,21 @@ def fetch(
     from terralens.fetchers.regions import region_tiles
 
     try:
-        tiles = region_tiles(region, zoom)
+        zoom_levels = [int(z.strip()) for z in zoom.split(",")]
+        tiles: list[tuple[int, int, int]] = []
+        for z_lvl in zoom_levels:
+            tiles.extend(region_tiles(region, z_lvl))
         dates = list(_iter_months(date.fromisoformat(start_date), date.fromisoformat(end_date)))
     except ValueError as exc:
         console.print(f"[red]Błąd:[/red] {exc}")
         raise typer.Exit(1)
 
     total = len(tiles) * len(dates)
+    zoom_label = zoom if "," in zoom else zoom
     console.print(
         f"[cyan]Region:[/cyan] {region} | "
         f"[cyan]Warstwa:[/cyan] {layer} | "
+        f"[cyan]Zoom:[/cyan] {zoom_label} | "
         f"[cyan]Tile'ów:[/cyan] {len(tiles)} × {len(dates)} dat = {total}"
     )
 
@@ -112,7 +119,9 @@ def fetch(
 def process(
     region: str = typer.Option("amazonia", help="Region do przetworzenia."),
     layer: str = typer.Option("HLS_RGB", help="Warstwa źródłowa (HLS_RGB/MODIS_NDVI)."),
-    zoom: int = typer.Option(6, help="Poziom zoomu (filtr tile'ów po bbox regionu)."),
+    zoom: str = typer.Option(
+        "6", help="Poziomy zoomu (filtr tile'ów po bbox regionu), np. '6,7,8'."
+    ),
     force: bool = typer.Option(False, help="Wymuś ponowne przetworzenie."),
 ) -> None:
     """Uruchamia Satlas ESRGAN 4x SR na pobranych tile'ach -> {layer}_SR/."""
@@ -136,13 +145,16 @@ def process(
         raise typer.Exit(1)
 
     try:
-        region_set = {(x, y) for _, x, y in region_tiles(region, zoom)}
+        zoom_levels = [int(z_str.strip()) for z_str in zoom.split(",")]
+        region_set = {
+            (z_lvl, x, y) for z_lvl in zoom_levels for _, x, y in region_tiles(region, z_lvl)
+        }
     except ValueError as exc:
         console.print(f"[red]Błąd:[/red] {exc}")
         raise typer.Exit(1)
 
     all_tiles = scan_tiles(src_dir)
-    tiles = [(z, x, y, p) for z, x, y, p in all_tiles if z == zoom and (x, y) in region_set]
+    tiles = [(z, x, y, p) for z, x, y, p in all_tiles if (z, x, y) in region_set]
 
     if not tiles:
         console.print(
