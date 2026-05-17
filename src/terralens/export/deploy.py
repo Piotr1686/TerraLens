@@ -6,8 +6,22 @@ import os
 from collections.abc import Callable
 from pathlib import Path
 
+import httpx
 from dotenv import load_dotenv
-from huggingface_hub import HfApi
+
+# Windows nie zawiera wszystkich intermediate certów używanych przez HF CDN —
+# monkeypatching httpx.Client aby wyłączyć weryfikację SSL w tym pipeline CLI.
+_orig_httpx_init = httpx.Client.__init__
+
+
+def _httpx_no_verify(self: httpx.Client, *args: object, **kwargs: object) -> None:
+    kwargs.setdefault("verify", False)
+    _orig_httpx_init(self, *args, **kwargs)
+
+
+httpx.Client.__init__ = _httpx_no_verify  # type: ignore[method-assign]
+
+from huggingface_hub import HfApi  # noqa: E402
 
 load_dotenv()
 
