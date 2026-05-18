@@ -353,5 +353,43 @@ def deploy(
         console.print(f"\n[green]Manifest publiczny:[/green] {public_url_base}/manifest.json")
 
 
+@app.command(name="deploy-changes")
+def deploy_changes(
+    processed_dir: str = typer.Option("data/processed", help="Katalog z changes.json."),
+    dry_run: bool = typer.Option(False, help="Symulacja bez uploadu do HF."),
+) -> None:
+    """Wgrywa changes.json na Hugging Face Datasets (CDN)."""
+    from terralens.export.deploy import _load_hf_config, deploy_files
+
+    json_path = Path(processed_dir) / "changes.json"
+    if not json_path.exists():
+        console.print(f"[red]Brak pliku:[/red] {json_path}")
+        raise typer.Exit(1)
+
+    try:
+        token, repo_id, public_url_base = _load_hf_config()
+    except OSError as exc:
+        console.print(f"[red]Błąd konfiguracji:[/red] {exc}")
+        console.print("Dodaj HF_TOKEN i HF_REPO_ID do pliku .env")
+        raise typer.Exit(1)
+
+    console.print(
+        f"[cyan]Deploy changes.json:[/cyan] {json_path} -> [cyan]{repo_id}[/cyan]"
+        + (" [yellow](dry-run)[/yellow]" if dry_run else "")
+    )
+
+    result = deploy_files(
+        [json_path],
+        token=token,
+        repo_id=repo_id,
+        public_url_base=public_url_base,
+        dry_run=dry_run,
+    )
+
+    console.print(f"[green]{'Dry-run' if dry_run else 'Upload'} zakończony[/green]")
+    for filename, url in result.items():
+        console.print(f"  [cyan]{url}[/cyan]")
+
+
 if __name__ == "__main__":
     app()
