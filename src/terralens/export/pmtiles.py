@@ -71,6 +71,17 @@ def build_pmtiles(
     if not tiles:
         raise ValueError(f"Brak tile'ów w katalogu: {tile_dir}")
 
+    # Deduplikacja: ten sam (z,x,y) może pojawić się wielokrotnie (różne daty
+    # w strukturze {layer}/{date}/{z}/{x}/{y}). Duplikaty tile_id korumpują
+    # PMTiles → czarne artefakty w deck.gl. Zachowujemy najpóźniejszą datę
+    # (str(path) jest porównywalny leksykograficznie bo daty są ISO YYYY-MM-DD).
+    seen: dict[tuple[int, int, int], tuple[int, int, int, Path]] = {}
+    for z, x, y, p in tiles:
+        key = (z, x, y)
+        if key not in seen or str(p) > str(seen[key][3]):
+            seen[key] = (z, x, y, p)
+    tiles = list(seen.values())
+
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     bounds = metadata.get("bounds")

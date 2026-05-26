@@ -241,6 +241,33 @@ class TestBuildPmtiles:
 
         assert out.exists()
 
+    def test_deduplication_keeps_latest_date(self, tmp_path):
+        """Regression: gdy ten sam (z,x,y) pojawia się w wielu datach, w PMTiles
+        ląduje tylko jeden tile — z najpóźniejszej daty (porządek ISO YYYY-MM-DD).
+        Zduplikowane tile_id korumpują PMTiles → czarne trójkąty w deck.gl."""
+        from pmtiles.reader import MmapSource, Reader
+
+        tile_dir = tmp_path / "tiles"
+        # Starsza data → czerwony, nowsza → niebieski. Po dedupie powinien wygrać niebieski.
+        for date, color in [("2015-01-01", (255, 0, 0)), ("2015-02-01", (0, 0, 255))]:
+            p = tile_dir / "HLS_RGB" / date / "6" / "36" / "16.png"
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_bytes(_make_png(color=color))
+        out = tmp_path / "test.pmtiles"
+
+        build_pmtiles(tile_dir, out, {})
+
+        with open(out, "rb") as f:
+            reader = Reader(MmapSource(f))
+            tile_bytes = reader.get(6, 36, 16)
+
+        assert tile_bytes is not None, "Tile musi istnieć po deduplikacji"
+        img = Image.open(io.BytesIO(tile_bytes))
+        assert img.format == "WEBP"
+        px = img.convert("RGB").getpixel((1, 1))
+        # Niebieski (latest date) > czerwony (older date)
+        assert px[2] > px[0], f"Oczekiwany niebieski (latest date), otrzymano RGB {px}"
+
     def test_metadata_dict_written_to_file(self, tmp_path):
         """Metadane JSON trafiają do pliku PMTiles."""
         tile_dir = self._make_tile_dir(tmp_path)
