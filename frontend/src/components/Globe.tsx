@@ -103,7 +103,7 @@ export function Globe({ tileUrl = BLUE_MARBLE, extraLayers = [], flyTarget, onRe
   ]
 
   return (
-    <div className="relative h-full w-full bg-black">
+    <div className="relative h-full w-full">
       <DeckGL
         views={GLOBE}
         viewState={viewState}

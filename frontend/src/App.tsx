@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Globe } from '@/components/Globe'
+import { Starfield } from '@/components/Starfield'
 import { REGIONS } from '@/data/regions'
 import { ArrivalRing } from '@/components/ArrivalRing'
 import { RegionHUD } from '@/components/RegionHUD'
@@ -69,6 +70,10 @@ function App() {
 
   const { dates, dateIndex, currentDate, tileUrl, setDateIndex } = useTimeline(manifestTimeline)
 
+  // PMTiles to snapshot "latest". Przy scrubbingu/timelapse w przeszłość chowamy go,
+  // żeby odsłonić historyczną teksturę MODIS regionu (base tileUrl zależny od daty).
+  const isLatestDate = dates.length === 0 || dateIndex === dates.length - 1
+
   const arrivedBbox = arrivedRegion
     ? REGIONS.find((r) => r.id === arrivedRegion)?.bbox
     : undefined
@@ -85,7 +90,7 @@ function App() {
   const pmtilesLayers = usePMTilesLayer({
     region: arrivedRegion,
     pmtilesUrl,
-    opacity: 0.9 * revealFraction,
+    opacity: 0.9 * revealFraction * (isLatestDate ? 1 : 0),
     bbox: arrivedBbox,
     viewportZoom,
   })
@@ -104,7 +109,8 @@ function App() {
     : null
 
   return (
-    <div className="h-full w-full">
+    <div className="relative h-full w-full overflow-hidden bg-black">
+      <Starfield />
       <Globe
         tileUrl={tileUrl}
         extraLayers={[...pmtilesLayers, ...(heatmapLayer ? [heatmapLayer] : [])]}
@@ -124,7 +130,7 @@ function App() {
         onStop={stop}
         onReplay={replay}
       />
-      <Timeline dates={dates} dateIndex={dateIndex} onDateChange={setDateIndex} />
+      <Timeline dates={dates} dateIndex={dateIndex} onDateChange={setDateIndex} showPlay={!!arrivedRegion} />
       {arrivedRegion && (
         <HeatmapControls
           metric={heatmapMetric}
