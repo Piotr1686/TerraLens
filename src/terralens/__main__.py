@@ -130,7 +130,7 @@ def process(
     ),
     force: bool = typer.Option(False, help="Wymuś ponowne przetworzenie."),
 ) -> None:
-    """Uruchamia Satlas ESRGAN 4x SR na pobranych tile'ach -> {layer}_SR/."""
+    """Uruchamia Real-ESRGAN 4× SR na pobranych tile'ach -> {layer}_SR/."""
     import gc
 
     import numpy as np
@@ -138,7 +138,7 @@ def process(
     from PIL import Image
 
     from terralens.config import get_config
-    from terralens.engines.satlas_esrgan import get_esrgan
+    from terralens.engines.realesrgan import get_esrgan
     from terralens.export.pmtiles import scan_tiles
     from terralens.fetchers.regions import region_tiles
 

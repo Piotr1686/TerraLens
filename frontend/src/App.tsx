@@ -7,6 +7,7 @@ import { RegionHUD } from '@/components/RegionHUD'
 import { Timeline } from '@/components/Timeline'
 import { HeatmapControls } from '@/components/HeatmapControls'
 import { StatsPanel } from '@/components/StatsPanel'
+import { SuperResPanel } from '@/components/SuperResPanel'
 import { GuidedTour } from '@/components/GuidedTour'
 import { Preloader } from '@/components/Preloader'
 import { useTimeline } from '@/hooks/useTimeline'
@@ -140,6 +141,7 @@ function App() {
         />
       )}
       <StatsPanel regionId={selectedRegion} currentDate={currentDate} />
+      <SuperResPanel regionId={arrivedRegion} />
       <Preloader progress={progress} label={label} isReady={isReady} hasPreview={hasPreview} />
     </div>
   )
