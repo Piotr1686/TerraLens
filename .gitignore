@@ -1,7 +1,8 @@
 # === TerraLens .gitignore ===
 
 # --- Dane (pobierane + generowane, duże) ---
-data/
+# Zakotwiczone do korzenia repo — pipeline Python. NIE łapie frontend/src/data/ (regions.ts).
+/data/
 
 # --- Sekrety ---
 .env
@@ -65,3 +66,5 @@ last_session.md.backup_*
 *.tmp
 *.bak
 cookies.txt
+
+.vercel
