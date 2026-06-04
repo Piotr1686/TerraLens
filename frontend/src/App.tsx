@@ -96,7 +96,7 @@ function App() {
     viewportZoom,
   })
 
-  const heatmapLayer = useHeatmapLayer({
+  const heatmapLayers = useHeatmapLayer({
     region: arrivedRegion,
     metric: heatmapMetric,
     opacity: heatmapOpacity * revealFraction,
@@ -114,7 +114,7 @@ function App() {
       <Starfield />
       <Globe
         tileUrl={tileUrl}
-        extraLayers={[...pmtilesLayers, ...(heatmapLayer ? [heatmapLayer] : [])]}
+        extraLayers={[...pmtilesLayers, ...heatmapLayers]}
         flyTarget={flyTarget}
         onRegionSelect={handleRegionSelect}
         onRegionArrival={handleRegionArrival}

@@ -60,6 +60,39 @@ def collect_deploy_files(export_dir: Path, region: str) -> list[Path]:
     return files
 
 
+def deploy_folder(
+    local_dir: Path,
+    path_in_repo: str,
+    *,
+    token: str,
+    repo_id: str,
+    public_url_base: str,
+    dry_run: bool = False,
+) -> str:
+    """Uploaduje cały katalog (zachowując strukturę) do HF Datasets.
+
+    Używane dla heatmap SSIM: raw PNG per tile `{z}/{x}/{y}.png` pod prefiksem
+    `path_in_repo` (np. `dubai_ssim_heatmap`). Zwraca bazowy public URL folderu.
+
+    Args:
+        local_dir:       Lokalny katalog do uploadu (np. data/processed/dubai/heatmap).
+        path_in_repo:    Prefiks ścieżki w repo (np. "dubai_ssim_heatmap").
+        token:           HF write token.
+        repo_id:         HF repo ID.
+        public_url_base: Bazowy URL bez trailing slash.
+        dry_run:         True → brak uploadu, tylko buduje URL.
+    """
+    if not dry_run:
+        api = HfApi(token=token)
+        api.upload_folder(
+            folder_path=str(local_dir),
+            path_in_repo=path_in_repo,
+            repo_id=repo_id,
+            repo_type="dataset",
+        )
+    return f"{public_url_base}/{path_in_repo}"
+
+
 def deploy_files(
     files: list[Path],
     *,
