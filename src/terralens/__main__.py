@@ -396,33 +396,36 @@ def deploy_heatmaps(
     processed_dir: str = typer.Option("data/processed", help="Katalog z {region}/heatmap."),
     dry_run: bool = typer.Option(False, help="Symulacja bez uploadu do HF."),
 ) -> None:
-    """Wgrywa heatmapy SSIM (PNG per tile) na HF: {region}_ssim_heatmap/{z}/{x}/{y}.png."""
+    """Wgrywa heatmapy na HF: {region}_ssim_heatmap i {region}_ndvi_heatmap/{z}/{x}/{y}.png."""
     from terralens.export.deploy import _load_hf_config, deploy_folder
 
     token, repo_id, public_url_base = _load_hf_config()
     regions = ["amazonia", "dubai", "arctic"]
+    # (lokalny podkatalog w {region}/, sufiks repo HF)
+    metrics = [("heatmap", "ssim_heatmap"), ("ndvi_heatmap", "ndvi_heatmap")]
 
     found = False
     for region in regions:
-        local = Path(processed_dir) / region / "heatmap"
-        if not local.exists() or not any(local.rglob("*.png")):
-            console.print(f"[yellow]Brak heatmap dla {region} ({local}) — pomijam[/yellow]")
-            continue
-        found = True
-        console.print(
-            f"[cyan]Deploy heatmap {region}:[/cyan] {local} -> "
-            f"[cyan]{repo_id}/{region}_ssim_heatmap[/cyan]"
-            + (" [yellow](dry-run)[/yellow]" if dry_run else "")
-        )
-        base = deploy_folder(
-            local,
-            f"{region}_ssim_heatmap",
-            token=token,
-            repo_id=repo_id,
-            public_url_base=public_url_base,
-            dry_run=dry_run,
-        )
-        console.print(f"  [cyan]{base}/{{z}}/{{x}}/{{y}}.png[/cyan]")
+        for subdir, suffix in metrics:
+            local = Path(processed_dir) / region / subdir
+            if not local.exists() or not any(local.rglob("*.png")):
+                console.print(f"[yellow]Brak {suffix} dla {region} ({local}) — pomijam[/yellow]")
+                continue
+            found = True
+            console.print(
+                f"[cyan]Deploy {suffix} {region}:[/cyan] {local} -> "
+                f"[cyan]{repo_id}/{region}_{suffix}[/cyan]"
+                + (" [yellow](dry-run)[/yellow]" if dry_run else "")
+            )
+            base = deploy_folder(
+                local,
+                f"{region}_{suffix}",
+                token=token,
+                repo_id=repo_id,
+                public_url_base=public_url_base,
+                dry_run=dry_run,
+            )
+            console.print(f"  [cyan]{base}/{{z}}/{{x}}/{{y}}.png[/cyan]")
 
     if not found:
         console.print(

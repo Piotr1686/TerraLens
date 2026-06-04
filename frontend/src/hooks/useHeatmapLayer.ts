@@ -6,25 +6,21 @@ import type { Layer } from '@deck.gl/core'
 
 export type HeatmapMetric = 'ssim' | 'ndvi' | 'cva'
 
-// --- Demo GIBS fallback (NDVI/CVA — brak realnych danych z pipeline) ---
+// --- Demo GIBS fallback (CVA — brak realnych danych z pipeline) ---
 // epsg3857 (GoogleMapsCompatible) — tile scheme zgodny z deck.gl TileLayer (Web Mercator OSM).
 const GIBS_BASE = 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best'
-// NDVI — roślinność → NDVI 8-day (gradient brązowy→zielony)
-const GIBS_NDVI = `${GIBS_BASE}/MODIS_Terra_NDVI_8Day/default/{date}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.png`
 // CVA — zmiana koloru → False Color 7-2-1 (czerwony=sucha roślinność, niebiesko=woda)
 const GIBS_CVA = `${GIBS_BASE}/MODIS_Terra_CorrectedReflectance_Bands721/default/{date}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg`
-const DEMO_LAYERS: Record<'ndvi' | 'cva', string> = { ndvi: GIBS_NDVI, cva: GIBS_CVA }
 // NDVI_8Day dostępny w GIBS dopiero od 2025-02-12; lipiec = dobre pokrycie wszystkich warstw.
 const DEMO_DATE = '2025-07-01'
 
-// --- Realne heatmapy SSIM: PNG per tile w siatce GIBS EPSG:4326 (z=7) ---
+// --- Realne heatmapy: PNG per tile w siatce GIBS EPSG:4326 ---
 // Indeksy 4326 NIE są kompatybilne z deck.gl TileLayer (Web Mercator) — dlatego, jak
 // usePMTilesLayer, iterujemy ręcznie (x,y) z bbox regionu i renderujemy multi-BitmapLayer
-// w natywnych bounds 4.5°×4.5°. Patrz MEMORY [2026-05-12] PMTiles overlay coordinate bridge.
+// w natywnych bounds. Patrz MEMORY [2026-05-12] PMTiles overlay i [2026-06-04] heatmapy SSIM.
 const HF_BASE = 'https://huggingface.co/datasets/Piotr1686/terralens-data/resolve/main'
 // Override przez VITE_HEATMAP_BASE (dev/staging); domyślnie HF CDN.
 const HEATMAP_BASE = import.meta.env.VITE_HEATMAP_BASE ?? HF_BASE
-const SSIM_ZOOM = 7
 // GIBS EPSG:4326 TileMatrixSet — wymiary macierzy per poziom zoomu.
 const GIBS_MATRIX: Record<number, { w: number; h: number }> = {
   6: { w: 80, h: 40 },
@@ -32,8 +28,15 @@ const GIBS_MATRIX: Record<number, { w: number; h: number }> = {
   8: { w: 320, h: 160 },
 }
 
-function ssimTileUrl(region: string, z: number, x: number, y: number): string {
-  return `${HEATMAP_BASE}/${region}_ssim_heatmap/${z}/${x}/${y}.png`
+// Metryki z realnymi mapami w pipeline → zoom siatki GIBS + sufiks repo HF.
+// SSIM (HLS_RGB) renderowany z=7; NDVI (MODIS_NDVI) z=6. CVA nadal demo (poniżej).
+const REAL_METRICS: Partial<Record<HeatmapMetric, { zoom: number; suffix: string }>> = {
+  ssim: { zoom: 7, suffix: 'ssim_heatmap' },
+  ndvi: { zoom: 6, suffix: 'ndvi_heatmap' },
+}
+
+function realTileUrl(region: string, suffix: string, z: number, x: number, y: number): string {
+  return `${HEATMAP_BASE}/${region}_${suffix}/${z}/${x}/${y}.png`
 }
 
 interface TileImage {
@@ -50,19 +53,20 @@ export interface HeatmapLayerConfig {
 }
 
 export function useHeatmapLayer({ region, metric, opacity, bbox }: HeatmapLayerConfig): Layer[] {
-  const [ssimTiles, setSsimTiles] = useState<TileImage[]>([])
-  const isSsim = metric === 'ssim'
+  const [realTiles, setRealTiles] = useState<TileImage[]>([])
+  const realCfg = REAL_METRICS[metric]
 
-  // Realne SSIM: pobierz PNG tile'e w indeksach GIBS 4326 wyliczonych z bbox regionu.
+  // Realne metryki (SSIM/NDVI): pobierz PNG tile'e w indeksach GIBS 4326 wyliczonych z bbox.
   useEffect(() => {
-    if (!isSsim || !region || !bbox) {
-      setSsimTiles([])
+    if (!realCfg || !region || !bbox) {
+      setRealTiles([])
       return
     }
     let cancelled = false
 
+    const { zoom, suffix } = realCfg
     const [lngMin, latMin, lngMax, latMax] = bbox
-    const { w: mw, h: mh } = GIBS_MATRIX[SSIM_ZOOM]
+    const { w: mw, h: mh } = GIBS_MATRIX[zoom]
     const xMin = Math.max(0, Math.floor(((lngMin + 180) / 360) * mw))
     const xMax = Math.min(mw - 1, Math.floor(((lngMax + 180) / 360) * mw))
     const yMin = Math.max(0, Math.floor(((90 - latMax) / 180) * mh))
@@ -70,14 +74,14 @@ export function useHeatmapLayer({ region, metric, opacity, bbox }: HeatmapLayerC
 
     const loadTile = async (x: number, y: number): Promise<TileImage | null> => {
       try {
-        const r = await fetch(ssimTileUrl(region, SSIM_ZOOM, x, y))
+        const r = await fetch(realTileUrl(region, suffix, zoom, x, y))
         if (!r.ok) return null
         const image = await createImageBitmap(await r.blob())
         const tLngMin = (x / mw) * 360 - 180
         const tLngMax = ((x + 1) / mw) * 360 - 180
         const tLatMax = 90 - (y / mh) * 180
         const tLatMin = 90 - ((y + 1) / mh) * 180
-        return { key: `${SSIM_ZOOM}-${x}-${y}`, image, bounds: [tLngMin, tLatMin, tLngMax, tLatMax] }
+        return { key: `${zoom}-${x}-${y}`, image, bounds: [tLngMin, tLatMin, tLngMax, tLatMax] }
       } catch {
         return null
       }
@@ -92,23 +96,23 @@ export function useHeatmapLayer({ region, metric, opacity, bbox }: HeatmapLayerC
 
     Promise.all(promises).then((results) => {
       if (cancelled) return
-      setSsimTiles(results.filter((t): t is TileImage => t !== null))
+      setRealTiles(results.filter((t): t is TileImage => t !== null))
     })
 
     return () => {
       cancelled = true
     }
-  }, [isSsim, region, bbox])
+  }, [metric, region, bbox]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return useMemo(() => {
     if (!region || opacity === 0) return []
 
-    // SSIM → realne BitmapLayer w natywnych bounds 4326 (jak usePMTilesLayer).
-    if (metric === 'ssim') {
-      return ssimTiles.map(
+    // SSIM/NDVI → realne BitmapLayer w natywnych bounds 4326 (jak usePMTilesLayer).
+    if (realCfg) {
+      return realTiles.map(
         (t) =>
           new BitmapLayer({
-            id: `heatmap-ssim-${region}-${t.key}`,
+            id: `heatmap-${metric}-${region}-${t.key}`,
             image: t.image,
             bounds: t.bounds,
             opacity,
@@ -117,8 +121,8 @@ export function useHeatmapLayer({ region, metric, opacity, bbox }: HeatmapLayerC
       )
     }
 
-    // NDVI/CVA → demo GIBS (brak realnych danych w pipeline); TileLayer = Web Mercator scheme.
-    const url = DEMO_LAYERS[metric].replace('{date}', DEMO_DATE)
+    // CVA → demo GIBS (brak realnych danych w pipeline); TileLayer = Web Mercator scheme.
+    const url = GIBS_CVA.replace('{date}', DEMO_DATE)
     return [
       new TileLayer({
         id: `heatmap-${metric}`,
@@ -139,5 +143,5 @@ export function useHeatmapLayer({ region, metric, opacity, bbox }: HeatmapLayerC
         },
       }),
     ]
-  }, [region, metric, opacity, bbox, ssimTiles])
+  }, [region, metric, opacity, bbox, realTiles, realCfg])
 }
