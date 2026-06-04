@@ -285,6 +285,16 @@
 
 <!-- Gotowe rozwiązania trudnych problemów — żeby nie szukać ich ponownie -->
 
+### [2026-06-04] Vercel stale-deploy 31 dni — `.gitignore data/` łykał frontend/src/data/regions.ts
+
+- **Objaw:** produkcja terra-lens-zeta.vercel.app serwowała bundle sprzed 31+ dni mimo regularnych `git push` na master. Wizualnie: glob rozpadał się na czarne kliny południkowe + martwe klikanie regionów. Stary bundle żądał kafli bazowych w `epsg4326/250m` (niekompatybilnym z deck.gl) → lawina HTTP 400 → brak kafli (to samo co [[2026-05-06]] seam, ale z innej przyczyny — brak danych, nie brak `_imageCoordinateSystem`).
+- **Root cause:** root `.gitignore` miał **niezakotwiczony** wzorzec `data/`, który łapał też `frontend/src/data/` → `regions.ts` (definicje Amazonia/Dubai/Arctic) **nigdy nie trafił do gita**. Na Linuxie (Vercel) klon repo nie miał pliku → `tsc -b` rzucał `TS2307 Cannot find module '@/data/regions'` → exit 2 → build **Error** (~11s). Lokalnie (Windows) i `vercel build` z working tree działały, bo miały plik na dysku — bug niewidoczny lokalnie. Każdy auto-build od ~31 dni padał (seria ● Error w `vercel ls`), więc alias produkcyjny stał na ostatnim udanym (prastarym).
+- **Diagnoza (dowodami):** grep bundla prod (`ssim_heatmap=0`, `epsg4326=1`) → stary build; `vercel ls terra-lens` → seria ● Error 11s; `vercel inspect --logs <error-deploy>` → dokładny `TS2307`. NIE zgadywanie.
+- **Fix:** `.gitignore` `data/` → `/data/` (zakotwiczone do korzenia, tylko pipeline Python), zacommitowany `frontend/src/data/regions.ts`. Commit `c19e052`. Po pushu auto-build przeszedł (● Ready, 14s) — pipeline `git push → deploy` znów działa.
+- **Naprawa natychmiastowa (zanim znaleziono root cause):** vercel CLI prebuilt deploy (`vercel build` + `vercel deploy --prebuilt --prod`) + `vercel alias set` — ominęło padający auto-build, bo budowało z lokalnego working tree.
+- **Gotcha TLS:** vercel CLI na tej maszynie wymaga `NODE_EXTRA_CA_CERTS` = bundle certów z magazynu Root Windows (maszyna przechwytuje TLS). Czyste rozwiązanie, BEZ `NODE_TLS_REJECT_UNAUTHORIZED=0`. Patrz [[feedback_windows_ssl]]. Bundle: `%TEMP%\win-ca-bundle.pem` (regenerowalny z `Get-ChildItem Cert:\LocalMachine\Root`).
+- **Reguła:** Po istotnym pushu **weryfikuj hash bundla produkcji** (`curl prod | grep index-*.js`), nie ufaj samemu „push przeszedł". `git push` ≠ „wdrożone" — build może cicho padać na case-sensitivity / brakujący-bo-gitignored plik (Linux ≠ Windows). Powiązane z anty-wzorcem z [[2026-05-02]] (Vercel monorepo) — dashboard `buildCommand` ma zbędne `cd frontend`, ale `frontend/vercel.json` to nadpisuje.
+
 ### [2026-05-30] [ROZWIĄZANY 2026-06-04] SSIM pipeline: cloud-masked reference (NaN) korumpuje histogram matching
 
 - **Bug (code review Sprintu 1):** `_ssim_pair` (`scripts/run_change_detection.py`) zawsze podaje `reference_qa` do `compute_change_map`, więc `apply_cloud_mask` zamienia chmury w referencji na `NaN`. Potem `compute_change_map` woła `match_to_reference(target, reference)` — a `match_to_reference` (`processors/histogram_match.py`) odtwarzał/wypełniał NaN **tylko dla `target`**, nigdy dla `reference` (stary docstring mówił wprost „reference: bez NaN").

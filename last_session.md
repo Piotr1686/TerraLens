@@ -1,79 +1,70 @@
 # last_session.md
 
-Sesja: 2026-05-08 · 22:30-23:10
-Status: ✓ Zakończona poprawnie — pivot done, tile fix w toku
+Sesja: 2026-06-04 · 20:30-21:20
+Status: ✓ Zakończona poprawnie
 
 ---
 
 ## ▸ NASTĘPNY KROK (zacznij tutaj)
 
-**Dokończyć migrację tile scheme epsg4326 → epsg3857 w `useHeatmapLayer.ts` + `Globe.tsx`.**
+**Dorób realne heatmapy NDVI** (analogicznie do SSIM, które już są realne). Konkretnie:
+w `scripts/build_heatmaps.py` dodaj render PNG dla metryki NDVI — różnica NDVI first-vs-last
+per tile (reużyj `processors/ndvi.py` + wzorzec `export_heatmap()` jak dla SSIM), colormap
+np. RdYlGn z NaN→alpha 0; deploy przez `terralens deploy-heatmaps` jako
+`{region}_ndvi_heatmap/{z}/{x}/{y}.png`; w `frontend/src/hooks/useHeatmapLayer.ts` podłącz
+gałąź `metric === 'ndvi'` do realnych PNG (multi-BitmapLayer 4326, dokładnie jak istniejąca
+ścieżka SSIM, linie ~57-101 i ~107-118) zamiast demo GIBS TileLayer.
 
-Konkretne zmiany (2 pliki):
-
-**`frontend/src/hooks/useHeatmapLayer.ts`:**
-```
-GIBS_BASE = 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best'
-
-GIBS_SSIM = `${GIBS_BASE}/MODIS_Terra_Land_Surface_Temp_Day/default/{date}/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png`
-GIBS_NDVI = `${GIBS_BASE}/MODIS_Terra_NDVI_8Day/default/{date}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.png`
-GIBS_CVA  = `${GIBS_BASE}/MODIS_Terra_CorrectedReflectance_Bands721/default/{date}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg`
-
-W TileLayer: minZoom: 1  (epsg3857 zoom=0 blank w GIBS)
-             maxZoom: 9
-```
-
-**`frontend/src/components/Globe.tsx`:**
-```
-W makeTileLayer: maxZoom: 7  →  maxZoom: 8
-```
-
-Kontekst: Deck.gl TileLayer używa OSM/Web Mercator tile scheme, a GIBS epsg4326 ma niekompatybilne tile dimensions (20×10 przy z=4 zamiast 16×16). Powoduje to wyświetlanie kafelki z innego kontynentu. Część Blue Marble już naprawiona — zostaje heatmapa i jeden parametr maxZoom. Po fixie: test wizualny (Amazonia/Dubai/Arctic) + `npm run build` + commit.
+Kontekst: SSIM to jedyna realna heatmapa; NDVI/CVA wciąż demo GIBS — to ostatnia widoczna
+część luki AI/ML (`project_intelligence_layer_gap`). Ścieżka SSIM jest sprawdzona i działa
+na produkcji, więc NDVI to powielenie gotowego wzorca, niskie ryzyko.
 
 ---
 
 ## Co zrobiono w tej sesji
 
-**Pivot (markery → ArrivalRing + HUD + chart):**
-- ✓ `Globe.tsx` — usunięto cały marker overlay: `_GlobeViewport`, `isOnFrontHemisphere`, `D2R`, `containerRef`, `ResizeObserver`, `markerPositions`, HTML overlay div
-- ✓ `ArrivalRing.tsx` — NOWY: CSS `@keyframes arrival-ring`, 2 koncentryczne złote pierścienie, re-animacja przez `key={arrivedRegion}`
-- ✓ `RegionHUD.tsx` — NOWY: top-right glassmorphism overlay z nazwą regionu + współrzędnymi, mounted/visible fade-in pattern
-- ✓ `StatsPanel.tsx` — dodano recharts `LineChart` z danymi NDVI/Urban/Ice per region (mock time-series 2015–2025)
-- ✓ `App.tsx` — wire-up `<ArrivalRing key={arrivedRegion} />` + `<RegionHUD region={arrivedRegionObj} />`
-- ✓ recharts zainstalowany (`--strict-ssl=false` workaround dla SSL w środowisku)
-- ✓ `npm run build` — zero TS errors
-
-**Diagnoza błędu tile scheme:**
-- ✓ Zdiagnozowano root cause "zbliżenia nie trafiają w regiony": deck.gl TileLayer = Web Mercator OSM scheme; GIBS epsg4326 = własne dimensions → mismatched → zły kontynent
-- ✓ `Globe.tsx` BLUE_MARBLE URL zmieniony: `epsg4326/500m` → `epsg3857/GoogleMapsCompatible_Level8`
-- ✓ Dodano wpis do MEMORY.md z regułą epsg3857
+- ✓ **Zdiagnozowano awarię produkcji dowodami** (konsola + grep bundla + `vercel ls/inspect`),
+  nie zgadywaniem: glob rozbity bo produkcja serwowała bundle sprzed 31+ dni.
+- ✓ **Znaleziono root cause:** root `.gitignore` wzorzec `data/` (niezakotwiczony) łapał
+  `frontend/src/data/` → `regions.ts` nigdy nie w gicie → na Linuxie/Vercel `TS2307` →
+  każdy auto-build padał ~31 dni (seria ● Error).
+- ✓ **Naprawa natychmiastowa:** vercel CLI prebuilt deploy + przepięcie aliasu `terra-lens-zeta`
+  (przez `NODE_EXTRA_CA_CERTS` = bundle certów Windows, bo maszyna przechwytuje TLS).
+- ✓ **Naprawa przyczyny:** `.gitignore` `data/` → `/data/`, zacommitowany `regions.ts`.
+  Commit `c19e052`, pushed (poszedł też zaległy docs `1c7f530`).
+- ✓ **Weryfikacja end-to-end:** push wyzwolił auto-build → ● Ready 14s; prod serwuje poprawny
+  bundle (`ssim_heatmap=1`, `epsg4326=0`). Użytkownik potwierdził wizualnie: glob zdrowy.
+- ✓ **MEMORY:** wpis projektowy [2026-06-04] (Rozwiązane problemy) + auto-memory
+  `bug_vercel_stale_deploy_gitignore` + index.
 
 ## Co zostało (backlog sesji)
 
-- ⚠ **FIX tile scheme NIEKOMPLETNY** — `useHeatmapLayer.ts` nadal epsg4326; `Globe.tsx` maxZoom nadal 7 — patrz NASTĘPNY KROK
-- ⧗ Test wizualny po tile fix — Amazonia/Dubai/Arctic kafelki trafiają?
-- ⧗ Dubai zoom=5 check — rozważyć zmianę na zoom=4 po tile fix
-- ⧗ `git commit` — `fix(T10.1): GIBS epsg3857` + `polish(S10): pivot markers→ArrivalRing`
-- ⧗ `git push origin master && git push origin v0.1.0`
-- ⧗ Demo GIF nagranie (po potwierdzeniu tile fix)
-- ⧗ README update — wstawić demo GIF
+- 🔭 **NDVI/CVA realne heatmapy** — patrz NASTĘPNY KROK (NDVI) i potem CVA tym samym wzorcem.
+- 🔭 **ESRGAN-w-PMTiles** — wdrożone kafle to nadal bezpośredni GIBS, nie SR (reszta luki AI/ML).
+- ⧗ **Sprint S10 — Explore Mode** (search Nominatim + free-zoom + Sentinel-2) — wymaga decyzji
+  architektonicznej (backend on-demand: Cloudflare Worker vs Vercel Function; źródło S2).
+- ⧗ **Więcej historii HLS_RGB** (multi-year) dla głębszego wykresu SSIM.
+- 🧹 **Opcjonalnie:** posprzątać sprzeczne `buildCommand`/`outputDirectory` w dashboardzie Vercela
+  (nie blokuje — `frontend/vercel.json` nadpisuje).
 
 ## Aktywne pliki
 
-- `frontend/src/components/Globe.tsx` — pivot ✓; BLUE_MARBLE URL zmieniony na epsg3857; `maxZoom` jeszcze 7 (zmienić na 8)
-- `frontend/src/hooks/useHeatmapLayer.ts` — **WYMAGA FIX** — nadal epsg4326
-- `frontend/src/components/ArrivalRing.tsx` — NOWY ✓
-- `frontend/src/components/RegionHUD.tsx` — NOWY ✓
-- `frontend/src/components/StatsPanel.tsx` — recharts chart ✓
-- `frontend/src/App.tsx` — wire-up ✓
-- `frontend/src/data/regions.ts` — bez zmian
+- `.gitignore` — `data/` → `/data/` (kluczowa poprawka tej sesji)
+- `frontend/src/data/regions.ts` — teraz śledzony przez git (był ignorowany)
+- `scripts/build_heatmaps.py` — następny cel: dodać render NDVI
+- `frontend/src/hooks/useHeatmapLayer.ts` — następny cel: podłączyć NDVI do realnych PNG
+- `processors/ndvi.py` — źródło do reużycia przy render NDVI diff
 
 ## Otwarte pytania
 
-- Czy `GoogleMapsCompatible_Level8` istnieje dla Blue Marble w GIBS epsg3857? (alternatywa: `EPSG3857_500m` lub `Level7`) — do weryfikacji przez test wizualny
-- PMTiles integracja z frontendem — odłożona na S11
-- StatsPanel stats hardcoded — `changes.json` z HF CDN nie fetchowany
+- NDVI/CVA: dorobić realne mapy teraz, czy zostawić demo do Sprintu S10? (rekomendacja: NDVI teraz)
+- Sprint S10: backend on-demand (Cloudflare Worker vs Vercel Function) + źródło Sentinel-2?
+- Posprzątać sprzeczne ustawienia build w dashboardzie Vercela? (opcjonalne)
 
 ## Do MEMORY.md (przeniesiono)
 
-- [2026-05-08] **deck.gl TileLayer + GIBS: ZAWSZE epsg3857 + GoogleMapsCompatible** — epsg4326 ma niekompatybilne tile dimensions przy zoom ≥ 3; szczegóły i level mapping w MEMORY.md
+- `[2026-06-04]` (sekcja Rozwiązane problemy) — „Vercel stale-deploy 31 dni — `.gitignore data/`
+  łykał frontend/src/data/regions.ts": objaw, root cause (TS2307 na Linuxie), diagnoza dowodami,
+  fix (`/data/` + commit regions.ts), naprawa natychmiastowa (prebuilt CLI), gotcha TLS
+  (`NODE_EXTRA_CA_CERTS`), reguła „weryfikuj hash bundla prod, nie tylko push". Commit `c19e052`.
+- Auto-memory `bug_vercel_stale_deploy_gitignore` — ta sama wiedza w pamięci długoterminowej.
