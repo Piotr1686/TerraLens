@@ -7,17 +7,19 @@ Status: ✓ Zakończona poprawnie
 
 ## ▸ NASTĘPNY KROK (zacznij tutaj)
 
-**Dorób realne heatmapy NDVI** (analogicznie do SSIM, które już są realne). Konkretnie:
-w `scripts/build_heatmaps.py` dodaj render PNG dla metryki NDVI — różnica NDVI first-vs-last
-per tile (reużyj `processors/ndvi.py` + wzorzec `export_heatmap()` jak dla SSIM), colormap
-np. RdYlGn z NaN→alpha 0; deploy przez `terralens deploy-heatmaps` jako
-`{region}_ndvi_heatmap/{z}/{x}/{y}.png`; w `frontend/src/hooks/useHeatmapLayer.ts` podłącz
-gałąź `metric === 'ndvi'` do realnych PNG (multi-BitmapLayer 4326, dokładnie jak istniejąca
-ścieżka SSIM, linie ~57-101 i ~107-118) zamiast demo GIBS TileLayer.
+**NDVI zrobione i live (commit `22e6e77`).** Następnie do wyboru:
+1. **CVA realne heatmapy** — ostatnia metryka wciąż demo GIBS (`useHeatmapLayer.ts`, gałąź
+   CVA). CVA = color/spectral change; w pipeline jest `processors/cva.py`. Wzorzec identyczny
+   jak NDVI/SSIM (render PNG w `build_heatmaps.py` → `deploy-heatmaps` doda automatycznie jeśli
+   dorzucisz `("cva_heatmap","cva_heatmap")` do listy `metrics` w `__main__.py` → podłącz
+   `REAL_METRICS.cva` w hooku). To domknęłoby CAŁĄ warstwę heatmap.
+2. **Sprint S10 — Explore Mode** (search Nominatim + free-zoom + Sentinel-2) — wymaga decyzji
+   architektonicznej (Cloudflare Worker vs Vercel Function; źródło S2).
 
-Kontekst: SSIM to jedyna realna heatmapa; NDVI/CVA wciąż demo GIBS — to ostatnia widoczna
-część luki AI/ML (`project_intelligence_layer_gap`). Ścieżka SSIM jest sprawdzona i działa
-na produkcji, więc NDVI to powielenie gotowego wzorca, niskie ryzyko.
+⚠️ **Gotcha deploy:** git auto-build na Vercelu DZIAŁA (Ready), ale po wcześniejszym ręcznym
+`vercel alias set` domena `terra-lens-zeta` nie auto-promuje się na nowy deploy — po każdym
+pushu trzeba `vercel promote <nowy-deploy-url>` (z `NODE_EXTRA_CA_CERTS`). Do uporządkowania:
+sprawdzić w dashboardzie czemu default `.vercel.app` nie przejmuje produkcji automatycznie.
 
 ---
 
