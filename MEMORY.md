@@ -9,6 +9,15 @@
 
 <!-- Claude dopisuje tutaj decyzje architektoniczne wraz z uzasadnieniem -->
 
+### [2026-06-04] Realne heatmapy SSIM — raw PNG (4326) + multi-BitmapLayer, NIE TileLayer
+
+- **Problem:** `useHeatmapLayer.ts` serwował heatmapy jako proxy GIBS (LST jako „SSIM") przez deck.gl `TileLayer`. Realne mapy SSIM z change detection były niepodłączone (flaga `pmtilesAvailable` nigdy true). Produkcyjny URL `{region}_{metric}_heatmap/{z}/{x}/{y}.png` w `TileLayer` i tak by nie zadziałał — TileLayer używa siatki Web Mercator, a pipeline produkuje indeksy GIBS EPSG:4326 (mismatch, patrz wpis [2026-05-12] PMTiles overlay).
+- **Decyzja:** Render realnych map `1 - SSIM` (colormap inferno, NaN→alpha 0) per tile dla pary first-vs-last, serwowanych jako **raw PNG** z HF i renderowanych **manualnie multi-BitmapLayer w natywnych bounds 4326** — ten sam wzorzec co `usePMTilesLayer` (iteracja (x,y) z bbox regionu, macierz 160×80 przy z=7). NIE `TileLayer` (Web Mercator). Raw PNG zamiast PMTiles: pełny mały kafel nie potrzebuje Range/redirect-fix, prostszy deploy (`upload_folder`).
+- **Implementacja:** render `scripts/build_heatmaps.py` (reużywa helperów `run_change_detection.py` + `export_heatmap()` z `ssim.py`); deploy `terralens deploy-heatmaps` → `deploy_folder()` (`export/deploy.py`, `HfApi.upload_folder`) jako `{region}_ssim_heatmap/{z}/{x}/{y}.png`; front `useHeatmapLayer.ts` (`metric=ssim` → realne PNG, zwraca `Layer[]`). Commit `6991cd9`.
+- **Semantyka:** zmiana strukturalna = jasny/gorący piksel; brak zmiany (SSIM≈1) = ciemny; chmury/brak danych = przezroczyste. Arctic ~pusty (HLS gap, [[project_arctic_hls_gap]]) — uczciwie, bo brak realnej zmiany.
+- **Zakres:** Dotyczy tylko SSIM. NDVI/CVA pozostają demo GIBS (brak realnych map w pipeline). Domyka kolejny kawałek [2026-05-29] luki AI/ML (heatmapy przestają być proxy).
+- **Niezweryfikowane wizualnie:** kod wiernie odwzorowuje sprawdzony `usePMTilesLayer`, typecheck+build zielone, dane live na HF (200), ale render na globie nie był obejrzany w przeglądarce — pierwszy smoke po Vercel auto-deploy.
+
 ### [2026-05-30] Pivot silnika SR: Satlas (martwy) → Real-ESRGAN RRDBNet x4 (zwendorowany)
 
 - **Problem:** `engines/satlas_esrgan.py` (SwinB backbone + dekoder) był **martwy** — dekoder miał losowe wagi (brak wytrenowanego `satlas_esrgan_x4.pt`), więc `upscale()` produkował **czarne kafle**. Próba naprawy (dodanie SSL-patch dla pobierania wag SwinB z HF) nie rozwiązywała sedna — brak wytrenowanego dekodera SR.
