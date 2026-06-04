@@ -9,6 +9,45 @@
 
 <!-- Claude dopisuje tutaj decyzje architektoniczne wraz z uzasadnieniem -->
 
+### [2026-05-30] Pivot silnika SR: Satlas (martwy) → Real-ESRGAN RRDBNet x4 (zwendorowany)
+
+- **Problem:** `engines/satlas_esrgan.py` (SwinB backbone + dekoder) był **martwy** — dekoder miał losowe wagi (brak wytrenowanego `satlas_esrgan_x4.pt`), więc `upscale()` produkował **czarne kafle**. Próba naprawy (dodanie SSL-patch dla pobierania wag SwinB z HF) nie rozwiązywała sedna — brak wytrenowanego dekodera SR.
+- **Decyzja:** Zastąpienie silnikiem **Real-ESRGAN RRDBNet x4** (`engines/realesrgan.py`). Architektura RRDBNet **zwendorowana ręcznie** (RDB → RRDB → RRDBNet) — celowo BEZ zależności od `basicsr`, bo `basicsr` importuje usunięte `torchvision.transforms.functional_tensor` → crash na `torchvision>=0.17`.
+- **Wagi:** `data/models/RealESRGAN_x4plus.pth` (~64 MB), auto-download z GitHub releases (`xinntao/Real-ESRGAN/v0.1.0`) przy pierwszym `load()`, `verify=False` (Windows cert, patrz [[feedback_windows_ssl]]). Wagi pod kluczem `params_ema` (fallback `params` → surowy dict).
+- **Interfejs zachowany 1:1:** `load/unload/is_loaded/upscale` + `get_esrgan/reset_esrgan` — `process` w `__main__.py` wymagał tylko zmiany importu. `satlas_esrgan.py` ZOSTAJE w repo wyłącznie jako źródło stałej `SCALE` dla `processors/tiled.py` (nie jest już instancjonowany w produkcie).
+- **Regresja zabezpieczona:** `test_upscale_not_black` (`tests/test_realesrgan.py`) — asercja `result.max() > 0.05`, pilnuje że silnik nie wróci do produkcji czarnych kafli. 10/10 testów zielone (integracyjne CUDA potwierdziły realny, nie-czarny output).
+- **Produkt:** split-slider raw↔SR ożywia tę funkcję w UI — `SuperResPanel.tsx` (clip-path before/after), pokazany przy `arrivedRegion` z gotowymi parami demo w `public/sr-demo/` (dubai 512→2048). Częściowo domyka [[project_intelligence_layer_gap]] (warstwa AI/ML wreszcie widoczna w produkcie).
+
+### [2026-05-12] Decyzja projektowa: target high-resolution + search dowolnego obszaru
+
+- **Zmiana skali wizji:** TerraLens nie ogranicza się do 3 predefiniowanych regionów (Amazonia/Dubai/Arctic). Docelowo user może **przybliżyć dowolny punkt globu do dobrej rozdzielczości** (street-level / sub-100m) oraz **wyszukać interesujący go obszar** (search bar / klik na globusie).
+- **Konsekwencje priorytetyzacji:** Sprint S0 T0.1 **Satlas ESRGAN** awansuje na high-priority (był blokujący per MASTER_PLAN, ale jego brak nie blokował MVP). 4× upscaling MODIS 250m → ~60m efektywne jest niezbędny do "wow" przy zoom-in. Wyższy priorytet niż `changes.json` upload, niż cleanup demo plików.
+- **Multi-zoom pipeline:** `__main__.py` `zoom` parameter musi obsługiwać listę (z6+z7+z8 minimum, ideal: z6-z8). Archiwa rosną z 10 MB → ~50 MB per region — user akceptuje.
+- **Multi-zoom frontend:** `usePMTilesLayer` musi przestać hardcodować `GIBS_ZOOM=6` — wybierać zoom poziom na podstawie viewport zoom kamery. Per [[2026-05-12 PMTiles overlay]] wpis poniżej.
+- **Search architektura:** Dla dowolnego bbox (nieznany z góry) PMTiles może być nieaplikable — bbox nie istnieje jako pre-built archive. Opcje: (a) bezpośredni GIBS fetch on-demand, (b) globalny PMTiles z lazy tile load, (c) osobny tile server. Decyzja deferred — odkryje się przy implementacji.
+- **Anti-pattern:** Rezygnacja z głębokości zoomu "bo MVP wystarczy". MVP może być na 3 regionach, ale jakość per region docelowo street-level.
+
+### [2026-05-12] PMTiles overlay — coordinate system bridge GIBS EPSG:4326 ↔ deck.gl WebMercator
+
+- **Problem fundamentalny:** Pipeline Python (`gibs.py`) fetchuje tile'y z GIBS endpoint `epsg4326/best` z tilematrixsetem `250m` — **niestandardowa siatka 80×40 przy z=6** (per [[2026-05-03 GIBS EPSG:4326 — niestandardowe TileMatrix dimensions]]). Frontend deck.gl `TileLayer` natomiast wysyła zapytania w **WebMercator OSM scheme 64×64 przy z=6**. (z,x,y) indices się NIE odpowiadają — sąsiedni `archive.getZxy(z,x,y)` z błędnymi indeksami zwracał null lub tile z innego obszaru geograficznego.
+- **Próby fix które NIE działały:**
+  1. Translacja WebMercator center → najbliższy GIBS tile + render przy GIBS bounds: tile'y MIAŁY się renderować, ale rozmiary 4.5° (GIBS) vs 5.625° (Mercator) różne → wizualne luki/overlap/przesunięcia
+  2. `minZoom: 6, maxZoom: 6` na TileLayer: deck.gl prosił dobry zoom level ale nadal w schemacie WebMercator — niedopasowanie x/y dalej istniało
+- **Co działa (fix):** Pominięcie `TileLayer` w ogóle. Hook bezpośrednio iteruje `(x, y)` w GIBS 4326 indices dla bbox regionu, fetch wszystkich tile'ów równolegle przez `archive.getZxy(6, x, y)`, returns `Layer[]` of `BitmapLayer` — każdy renderowany przy swoich natywnych bounds 4.5°×4.5° z `COORDINATE_SYSTEM.LNGLAT`. ~15 tile'ów per region (Amazonia 5×3), 1 fetch przy `arrivedRegion` change, cached w `archiveCache`.
+- **Implementacja:** `frontend/src/hooks/usePMTilesLayer.ts` (commit `7f04504`).
+- **Reguła:** Dla PMTiles z pipeline EPSG:4326 — **nie używać deck.gl `TileLayer`**. Iterować ręcznie + multi-BitmapLayer. To anty-wzorzec vs [[2026-05-08 deck.gl TileLayer + GIBS]] który dotyczył **live GIBS endpoint** (tam epsg3857 jest dostępne); PMTiles archiwum ma już zaszyte 4326 indices i nie da się tego "naprawić" frontend-side.
+- **TODO architektoniczne:** Aby uprościć w przyszłości, można:
+  - Przepisać pipeline na GIBS `epsg3857` endpoint (cleaner, ale wymaga re-fetch wszystkich tile'ów NASA)
+  - Lub zostawić current bridge i traktować go jako stałe rozwiązanie
+
+### [2026-05-12] HF CDN — 302 redirect gubi Range headers, HEAD resolveRedirect workaround
+
+- **Objaw:** `pmtiles.js` używa HTTP Range requests do pobierania kawałków archiwum (cała idea formatu). HuggingFace `/datasets/{user}/{repo}/resolve/main/{file}.pmtiles` URL zwraca **302 redirect do `cas-bridge.xethub.hf.co`** (CDN LFS). Przeglądarka po redirect **dropuje nagłówek `Range`** — finalny request idzie bez Range, CDN zwraca pełny plik (lub failuje).
+- **Fix:** Hook `usePMTilesLayer` przed użyciem URL wywołuje `resolveRedirect(url)` — HEAD request z `redirect: 'follow'`, capture `response.url` (final CDN URL po redirect). Następnie `new PMTiles(resolvedUrl)` z bezpośrednim CDN URL — bez kolejnego redirect, Range headers przechodzą.
+- **Cache:** `redirectCache: Map<string, string>` — resolveRedirect wywoływane raz per URL (signed AWS params w CDN URL nie odświeżamy w obrębie sesji; po expiration usera trzeba przeładować).
+- **Scope:** Dotyczy każdego fetch'a do HF `/resolve/main/` z biblioteki która polega na Range requests. PMTiles tak, ale też np. własne IndexedDB fragmentowane fetche. Zwykłe `fetch(url).json()` bez Range — nie dotyczy (przeglądarka obsługuje redirect transparentnie).
+- **Implementacja:** `frontend/src/hooks/usePMTilesLayer.ts` `resolveRedirect()` (commit `7f04504`).
+
 ### [2026-05-08] deck.gl TileLayer + GIBS: używać TYLKO epsg3857 (GoogleMapsCompatible)
 
 - **Przyczyna błędu "kafelki w złym miejscu":** `deck.gl TileLayer` używa **OSM/Web Mercator tile scheme** (z=0 → 1 kafelka, z=4 → 16×16 kafelki) nawet w `_GlobeView`. Tymczasem GIBS `epsg4326` używa **własnych tile dimensions** (z=4 → 20×10 kafelki). Mismatched indices → GIBS serwuje kafelkę z innego obszaru geograficznego, deck.gl renderuje ją w złym miejscu.
@@ -236,6 +275,15 @@
 ## Rozwiązane problemy
 
 <!-- Gotowe rozwiązania trudnych problemów — żeby nie szukać ich ponownie -->
+
+### [2026-05-30] [ROZWIĄZANY 2026-06-04] SSIM pipeline: cloud-masked reference (NaN) korumpuje histogram matching
+
+- **Bug (code review Sprintu 1):** `_ssim_pair` (`scripts/run_change_detection.py`) zawsze podaje `reference_qa` do `compute_change_map`, więc `apply_cloud_mask` zamienia chmury w referencji na `NaN`. Potem `compute_change_map` woła `match_to_reference(target, reference)` — a `match_to_reference` (`processors/histogram_match.py`) odtwarzał/wypełniał NaN **tylko dla `target`**, nigdy dla `reference` (stary docstring mówił wprost „reference: bez NaN").
+- **Skutek:** `skimage.exposure.match_histograms` dostawał template z NaN → CDF referencji skażone (NaN na końcu kwantyli) → jasne piksele target mapowane na NaN/śmieci. `ssim_mean` zaniżone, `change_fraction` zawyżone. Stary kod wołał `compute_change_map(a, b)` BEZ QA (referencja bez NaN), więc problem był **regresją wprowadzoną w tamtej sesji**.
+- **Fix (zastosowany):** `match_to_reference` przepisane na **maskowane dopasowanie histogramu kanał po kanale** — nowy helper `_match_cumulative_cdf_masked(source_vals, template_vals)` operuje na 1-D wektorach **tylko ważnych** (nie-NaN) pikseli; maski liczone osobno dla target i reference (`~any(isnan, axis=-1)`). Usunięta zależność od `skimage.exposure.match_histograms`. Naprawia oba defekty naraz: NaN w reference psujący template CDF **oraz** wcześniejsze wypełnianie target zerami zaszumiające rozkład źródła.
+- **Weryfikacja:** re-run `run_change_detection.py` + `build_stats.py` → **Dubaj surface change 86% → 55%** (bug zawyżał o ~31 pkt proc., podejrzenie potwierdzone). Amazonia −16% NDVI bez zmian (ścieżka NDVI nietknięta), Arctic SSIM nadal poprawnie odrzucony jako data-gap. Frontend `tsc --noEmit` zielony.
+- **Powiązane drobiazgi z review (zrobione):** (1) `run_ssim_detection` — przy 2 datach `overall` reużywa `series[0]` zamiast liczyć `_ssim_pair(dates[0], dates[-1])` drugi raz; (2) martwy prop `currentDate` usunięty z `StatsPanel.Props`, z `App.tsx:143` oraz z nieużywanej destrukturyzacji `useTimeline` w `App.tsx:72`.
+- **Latentny follow-up (osobny ticket):** Arctic summary first-vs-last bierze Sty→Lip (oba śnieg → SSIM≈1.0 → odrzut), choć środek serii ma realną zmianę sezonową — detekcja data-gap działa, ale summary dla Arctic jest mało informatywne. Patrz [[project_arctic_hls_gap]].
 
 ### [2026-04-26] VRAM fragmentation na RTX 3050 — empty_cache co 2 tile'y, nie per-tile
 

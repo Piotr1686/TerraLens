@@ -69,7 +69,7 @@ function App() {
 
   const revealFraction = useRevealOpacity(arrivedRegion, 600, fps)
 
-  const { dates, dateIndex, currentDate, tileUrl, setDateIndex } = useTimeline(manifestTimeline)
+  const { dates, dateIndex, tileUrl, setDateIndex } = useTimeline(manifestTimeline)
 
   // PMTiles to snapshot "latest". Przy scrubbingu/timelapse w przeszłość chowamy go,
   // żeby odsłonić historyczną teksturę MODIS regionu (base tileUrl zależny od daty).
@@ -140,7 +140,7 @@ function App() {
           onOpacityChange={setHeatmapOpacity}
         />
       )}
-      <StatsPanel regionId={selectedRegion} currentDate={currentDate} />
+      <StatsPanel regionId={selectedRegion} />
       <SuperResPanel regionId={arrivedRegion} />
       <Preloader progress={progress} label={label} isReady={isReady} hasPreview={hasPreview} />
     </div>
