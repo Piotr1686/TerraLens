@@ -48,10 +48,11 @@ frontend/.vite/
 .DS_Store
 Thumbs.db
 
-# --- Session system backups ---
-CLAUDE.md.backup_*
-MEMORY.md.backup_*
-last_session.md.backup_*
+# --- Claude Code Session System ---
+# Odkomentuj jeśli nie chcesz commitować stanu sesji:
+# last_session.md
+# last_session.archive.md
+*.backup_*
 
 # --- Wagi modeli (pobierane lokalnie, duże) ---
 *.pt
