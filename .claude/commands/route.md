@@ -26,8 +26,8 @@ Kryteria trafione:
 
 Bilans: <X> kryteriów HIGH vs <Y> kryteriów LOW.
 
-Rekomendacja: **<HIGH | LOW>** (<claude-opus-4-7 | claude-sonnet-4-6>)
-Komenda: `/<opus|sonnet>` lub `/<architect|quick|deep-debug|review|explain>`
+Rekomendacja: **<HIGH | LOW>** (<claude-opus-4-8 | claude-sonnet-4-6>)
+Komenda: `/<opus|sonnet>` lub `/<architect|quick|deep-debug|code-audit|explain>`
 
 Powód rozstrzygający (jeśli bilans był niejednoznaczny):
 <który punkt z "Kryteria rozstrzygające" zadecydował — ireversibility,

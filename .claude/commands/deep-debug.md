@@ -1,7 +1,7 @@
 ---
 description: Trudny debug, problem po co najmniej jednej nieudanej próbie naprawy (HIGH).
 argument-hint: <opis błędu, traceback, co już próbowaliśmy>
-model: claude-opus-4-7
+model: claude-opus-4-8
 ---
 
 # /deep-debug — trudny debug (HIGH)

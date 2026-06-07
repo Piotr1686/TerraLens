@@ -1,10 +1,10 @@
 ---
 description: Code review przed commitem lub publikacją na GitHub (HIGH).
 argument-hint: [opcjonalnie: ścieżka do pliku lub @path]
-model: claude-opus-4-7
+model: claude-opus-4-8
 ---
 
-# /review — code review (HIGH)
+# /code-audit — code review (HIGH)
 
 Zakres: `$ARGUMENTS` (jeśli puste — uncommitted changes; uruchom w myśli
 odpowiednik `git diff HEAD` i zreferuj).
@@ -44,11 +44,11 @@ odpowiednik `git diff HEAD` i zreferuj).
    ❌ FAIL — nie commituj. Konieczne zmiany: <...>.
    ```
 
-6. **Po review:**
+6. **Po audycie:**
    - Jeśli PASS / PASS WITH WARNINGS → zaproponuj `/sonnet` i komendę `git commit`.
    - Jeśli FAIL → pozostań na HIGH, zaproponuj plan naprawy (bez wykonywania go).
 
 **Anti-patterny:**
-- ❌ Lista 40 drobnych uwag stylistycznych bez bilansu. Review ma dać werdykt.
+- ❌ Lista 40 drobnych uwag stylistycznych bez bilansu. Audyt ma dać werdykt.
 - ❌ Akceptacja kodu naruszającego architectural law „bo poza tym jest OK".
-- ❌ Naprawianie od razu — to jest review, nie fix.
+- ❌ Naprawianie od razu — to jest audyt, nie fix.

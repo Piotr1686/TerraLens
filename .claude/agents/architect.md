@@ -1,7 +1,7 @@
 ---
 name: architect
 description: Głęboka analiza architektoniczna w subagencie z własnym kontekstem (HIGH).
-model: claude-opus-4-7
+model: claude-opus-4-8
 allowedTools:
   - Read
   - Grep

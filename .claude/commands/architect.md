@@ -1,7 +1,7 @@
 ---
 description: Architektura, projektowanie modułów, refactor obejmujący wiele plików (HIGH).
 argument-hint: <opis zadania architektonicznego>
-model: claude-opus-4-7
+model: claude-opus-4-8
 ---
 
 # /architect — tryb architektoniczny (wymuszone HIGH)

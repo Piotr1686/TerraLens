@@ -1,12 +1,12 @@
 ---
 description: Przełącz na HIGH (Opus 4.7) z uzasadnieniem wg MODEL_ROUTING.md
 argument-hint: [opcjonalny powód]
-model: claude-opus-4-7
+model: claude-opus-4-8
 ---
 
 # /opus — eskalacja na HIGH
 
-Użytkownik jawnie prosi o przełączenie na model wysokiej klasy (`claude-opus-4-7`).
+Użytkownik jawnie prosi o przełączenie na model wysokiej klasy (`claude-opus-4-8`).
 
 **Twój krok:**
 

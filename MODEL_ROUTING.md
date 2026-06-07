@@ -10,7 +10,7 @@
 
 | Alias w tym dokumencie | Model ID                | Rola                                     |
 |------------------------|-------------------------|------------------------------------------|
-| **HIGH**               | `claude-opus-4-7`       | Adaptive thinking — trudne, kreatywne    |
+| **HIGH**               | `claude-opus-4-8`       | Adaptive thinking — trudne, kreatywne    |
 | **LOW**                | `claude-sonnet-4-6`     | Rutyna, tłumaczenia, proste edycje       |
 
 Domyślny model sesji: **LOW** (`claude-sonnet-4-6`).
@@ -40,14 +40,19 @@ Wyjątki od tej procedury:
 
 ## Macierz decyzyjna
 
-### 🟥 Eskaluj do HIGH (`claude-opus-4-7`)
+### 🟥 Eskaluj do HIGH (`claude-opus-4-8`)
 
 Zadanie trafia na HIGH, jeśli spełnia **co najmniej jeden** z poniższych:
 
 #### Złożoność kodu
 - Refactor obejmujący **≥ 3 pliki** lub **≥ 150 LOC netto**.
-- Zmiany w **architectural law** projektu: `config.py` (Singleton, Pydantic Settings),
-  `@vram_safe` decorator, `OOMStrategy`, ładowanie modeli, FastAPI `asyncio.to_thread()`.
+- Zmiany w **architectural law** projektu. Poniższe to **przykłady dla projektów
+  AI/Python z GPU**: `config.py` (Singleton, Pydantic Settings), `@vram_safe`
+  decorator, `OOMStrategy`, ładowanie modeli, FastAPI `asyncio.to_thread()`.
+  > W projekcie **nie-AI / CPU-only / innym stacku** (np. DriftScope: framework
+  > naukowy CPU-only — brak `@vram_safe`/`OOMStrategy`) podstaw własne „prawa":
+  > rdzeń metodologii, kontrakty determinizmu/seedów, schematy danych, publiczne
+  > API. Zasada jest stała: dotknięcie rdzenia → HIGH.
 - Projektowanie nowego silnika/modułu (nowy `engine_*.py`, nowy processor,
   nowy serwis).
 - Algorytmy domenowe i ML: feature extraction, embedding/color matching
@@ -178,7 +183,7 @@ Zobacz [`MODEL_ROUTING.md`](./MODEL_ROUTING.md). Reguły obowiązują bezwyjątk
 - `/quick` — komenda z wymuszonym LOW (edycja rutynowa).
 - `/explain` — LOW; proste wyjaśnienie pojęcia.
 - `/deep-debug` — HIGH; trudny debug wieloetapowy.
-- `/review` — HIGH; code review przed commitem/publikacją.
+- `/code-audit` — HIGH; code review przed commitem/publikacją.
 
 ---
 

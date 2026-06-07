@@ -23,21 +23,31 @@
 - Przetwarzanie obrazów: tiled 512×512 z overlap 64px, FP16, batch-size-1
 
 ## Pliki stanu sesji
-- MEMORY.md       — długoterminowa pamięć projektu (czytaj na /start)
-- last_session.md — stan ostatniej sesji (czytaj na /start, pisz na /end)
-- MASTER_PLAN.md  — mapa wykonawcza (sprinty S0–S9, taski z DoD); czytaj po /start przed nowym zadaniem
-- PROJECT_BRIEF.md — wizja, stack, uzasadnienia decyzji AI/ML (referencja)
+- MEMORY.md              — długoterminowa pamięć projektu (czytaj na /start)
+- last_session.md        — stan ostatniej sesji + punkt odniesienia git (czytaj na /start, pisz na /end)
+- last_session.archive.md — archiwum 5 ostatnich sesji (bezpiecznik /end; powstaje przy pierwszym /end)
+- MASTER_PLAN.md         — mapa wykonawcza (sprinty S0–S9, taski z DoD); czytaj po /start przed nowym zadaniem
+- PROJECT_BRIEF.md       — wizja, stack, uzasadnienia decyzji AI/ML (referencja)
 
 ## Komendy dostępne w tym projekcie
-- /start   — inicjalizacja sesji (czyta MEMORY.md + last_session.md)
+- /start   — inicjalizacja sesji (czyta MEMORY.md + last_session.md; sanity-check desync vs git/MASTER_PLAN)
 - /save    — checkpoint w trakcie sesji (aktualizuje last_session.md)
-- /end     — zamknięcie sesji (nadpisuje last_session.md, aktualizuje MEMORY.md)
+- /recover — audyt przed /end: zmiany od punktu odniesienia vs plan, lista napraw (read-only)
+- /end     — zamknięcie sesji: weryfikacja → archiwizacja → nadpis last_session.md + update MEMORY/MASTER_PLAN
 - /status  — szybki podgląd aktualnego stanu (tylko odczyt)
+
+### Komendy model routing (pakiet `MODEL_ROUTING.md`)
+HIGH = `claude-opus-4-8`, LOW = `claude-sonnet-4-6`. Pełne reguły: `MODEL_ROUTING.md`.
+- /route <opis> — klasyfikacja zadania bez wykonania (Haiku, grosze)
+- /architect, /deep-debug, /code-audit — wymuszają HIGH
+- /quick, /explain, /sonnet — wymuszają LOW
+- /opus, /sonnet — jawne przełączenie z uzasadnieniem
 
 ## Sprzęt / Ograniczenia
 - GPU: RTX 3050 Laptop 4GB VRAM — nie ładuj modeli >3.5GB w pełnym FP16
 - CPU: i5-12500H
 - RAM: 32GB DDR4
-- Preferuj kwantyzację GGUF Q4_K_M dla modeli LLM
-- Rozważ CPU offload dla warstw które nie mieszczą się w VRAM
-- Peak VRAM pipeline: ~1.5GB (Satlas ESRGAN FP16 singleton, tiled 512×512). Stosuj `torch.cuda.empty_cache()` + `gc.collect()` co 2 tile'y, `@vram_safe` decorator.
+- **Profil obliczeniowy (CV super-resolution, brak LLM):** Satlas ESRGAN FP16 jako
+  singleton, tiled 512×512 (overlap 64px). Peak VRAM pipeline ~1.5GB. Stosuj
+  `torch.cuda.empty_cache()` + `gc.collect()` co 2 tile'y, dekorator `@vram_safe`.
+- Rozważ CPU offload dla warstw, które nie mieszczą się w VRAM.
