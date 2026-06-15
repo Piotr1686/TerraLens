@@ -1,18 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { TileLayer } from '@deck.gl/geo-layers'
 import { BitmapLayer } from '@deck.gl/layers'
 import { COORDINATE_SYSTEM } from '@deck.gl/core'
 import type { Layer } from '@deck.gl/core'
 
 export type HeatmapMetric = 'ssim' | 'ndvi' | 'cva'
-
-// --- Demo GIBS fallback (CVA — brak realnych danych z pipeline) ---
-// epsg3857 (GoogleMapsCompatible) — tile scheme zgodny z deck.gl TileLayer (Web Mercator OSM).
-const GIBS_BASE = 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best'
-// CVA — zmiana koloru → False Color 7-2-1 (czerwony=sucha roślinność, niebiesko=woda)
-const GIBS_CVA = `${GIBS_BASE}/MODIS_Terra_CorrectedReflectance_Bands721/default/{date}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg`
-// NDVI_8Day dostępny w GIBS dopiero od 2025-02-12; lipiec = dobre pokrycie wszystkich warstw.
-const DEMO_DATE = '2025-07-01'
 
 // --- Realne heatmapy: PNG per tile w siatce GIBS EPSG:4326 ---
 // Indeksy 4326 NIE są kompatybilne z deck.gl TileLayer (Web Mercator) — dlatego, jak
@@ -28,10 +19,11 @@ const GIBS_MATRIX: Record<number, { w: number; h: number }> = {
   8: { w: 320, h: 160 },
 }
 
-// Metryki z realnymi mapami w pipeline → zoom siatki GIBS + sufiks repo HF.
-// SSIM (HLS_RGB) renderowany z=7; NDVI (MODIS_NDVI) z=6. CVA nadal demo (poniżej).
-const REAL_METRICS: Partial<Record<HeatmapMetric, { zoom: number; suffix: string }>> = {
+// Wszystkie metryki mają realne mapy w pipeline → zoom siatki GIBS + sufiks repo HF.
+// SSIM i CVA (HLS_RGB) renderowane z=7; NDVI (MODIS_NDVI) z=6.
+const REAL_METRICS: Record<HeatmapMetric, { zoom: number; suffix: string }> = {
   ssim: { zoom: 7, suffix: 'ssim_heatmap' },
+  cva: { zoom: 7, suffix: 'cva_heatmap' },
   ndvi: { zoom: 6, suffix: 'ndvi_heatmap' },
 }
 
@@ -56,7 +48,7 @@ export function useHeatmapLayer({ region, metric, opacity, bbox }: HeatmapLayerC
   const [realTiles, setRealTiles] = useState<TileImage[]>([])
   const realCfg = REAL_METRICS[metric]
 
-  // Realne metryki (SSIM/NDVI): pobierz PNG tile'e w indeksach GIBS 4326 wyliczonych z bbox.
+  // Realne metryki (SSIM/CVA/NDVI): pobierz PNG tile'e w indeksach GIBS 4326 wyliczonych z bbox.
   useEffect(() => {
     if (!realCfg || !region || !bbox) {
       setRealTiles([])
@@ -107,41 +99,16 @@ export function useHeatmapLayer({ region, metric, opacity, bbox }: HeatmapLayerC
   return useMemo(() => {
     if (!region || opacity === 0) return []
 
-    // SSIM/NDVI → realne BitmapLayer w natywnych bounds 4326 (jak usePMTilesLayer).
-    if (realCfg) {
-      return realTiles.map(
-        (t) =>
-          new BitmapLayer({
-            id: `heatmap-${metric}-${region}-${t.key}`,
-            image: t.image,
-            bounds: t.bounds,
-            opacity,
-            _imageCoordinateSystem: COORDINATE_SYSTEM.LNGLAT,
-          }),
-      )
-    }
-
-    // CVA → demo GIBS (brak realnych danych w pipeline); TileLayer = Web Mercator scheme.
-    const url = GIBS_CVA.replace('{date}', DEMO_DATE)
-    return [
-      new TileLayer({
-        id: `heatmap-${metric}`,
-        data: url,
-        minZoom: 1,
-        maxZoom: 9,
-        tileSize: 256,
-        extent: bbox ?? [-180, -90, 180, 90],
-        opacity,
-        renderSubLayers: (props) => {
-          const { boundingBox } = props.tile
-          return new BitmapLayer(props, {
-            data: undefined,
-            image: props.data,
-            bounds: [boundingBox[0][0], boundingBox[0][1], boundingBox[1][0], boundingBox[1][1]],
-            _imageCoordinateSystem: COORDINATE_SYSTEM.LNGLAT,
-          })
-        },
-      }),
-    ]
-  }, [region, metric, opacity, bbox, realTiles, realCfg])
+    // Wszystkie metryki → realne BitmapLayer w natywnych bounds 4326 (jak usePMTilesLayer).
+    return realTiles.map(
+      (t) =>
+        new BitmapLayer({
+          id: `heatmap-${metric}-${region}-${t.key}`,
+          image: t.image,
+          bounds: t.bounds,
+          opacity,
+          _imageCoordinateSystem: COORDINATE_SYSTEM.LNGLAT,
+        }),
+    )
+  }, [region, metric, opacity, realTiles])
 }

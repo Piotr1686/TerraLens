@@ -396,13 +396,17 @@ def deploy_heatmaps(
     processed_dir: str = typer.Option("data/processed", help="Katalog z {region}/heatmap."),
     dry_run: bool = typer.Option(False, help="Symulacja bez uploadu do HF."),
 ) -> None:
-    """Wgrywa heatmapy na HF: {region}_ssim_heatmap i {region}_ndvi_heatmap/{z}/{x}/{y}.png."""
+    """Wgrywa heatmapy na HF: {region}_{ssim,cva,ndvi}_heatmap/{z}/{x}/{y}.png."""
     from terralens.export.deploy import _load_hf_config, deploy_folder
 
     token, repo_id, public_url_base = _load_hf_config()
     regions = ["amazonia", "dubai", "arctic"]
     # (lokalny podkatalog w {region}/, sufiks repo HF)
-    metrics = [("heatmap", "ssim_heatmap"), ("ndvi_heatmap", "ndvi_heatmap")]
+    metrics = [
+        ("heatmap", "ssim_heatmap"),
+        ("cva_heatmap", "cva_heatmap"),
+        ("ndvi_heatmap", "ndvi_heatmap"),
+    ]
 
     found = False
     for region in regions:

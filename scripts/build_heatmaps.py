@@ -1,9 +1,11 @@
 """Buduje REALNE heatmapy zmian (PNG per tile) z pipeline'u change detection.
 
-Dwie metryki, para first-vs-last, indeksy w siatce GIBS EPSG:4326 (jak region_tiles):
+Trzy metryki, para first-vs-last, indeksy w siatce GIBS EPSG:4326 (jak region_tiles):
   - SSIM (HLS_RGB, z=7): mapa zmiany (1 - SSIM) tą samą ścieżką co run_change_detection
     (cloud_proxy_qa → compute_change_map). Zmiana strukturalna = jasny piksel (inferno).
     Wyjście: data/processed/{region}/heatmap/{z}/{x}/{y}.png
+  - CVA (HLS_RGB, z=7): mapa ΔE w LAB (zmiana koloru bez struktury) z cloud maskingiem;
+    silna zmiana = jasny piksel (plasma). Wyjście: data/processed/{region}/cva_heatmap/...
   - NDVI (MODIS_NDVI, z=6): dywergentna mapa diff (after-before) — czerwień=utrata
     roślinności, zieleń=przyrost (RdYlGn). Wyjście: data/processed/{region}/ndvi_heatmap/...
 NaN (chmury / brak danych / zmiana < progu) → przezroczystość.
@@ -39,7 +41,8 @@ from run_change_detection import (  # noqa: E402
     get_dates,
 )
 from terralens.fetchers.regions import region_tiles
-from terralens.processors.cloud_mask import InsufficientDataWarning
+from terralens.processors.cloud_mask import InsufficientDataWarning, apply_cloud_mask
+from terralens.processors.cva import compute_cva
 from terralens.processors.ndvi import compute_ndvi_diff
 from terralens.processors.ssim import compute_change_map, export_heatmap
 
@@ -56,6 +59,16 @@ NDVI_CMAP = "RdYlGn"
 NDVI_MIN_CHANGE = 0.12
 # Zakres normalizacji koloru: |diff| = NDVI_VRANGE → pełne nasycenie.
 NDVI_VRANGE = 0.4
+
+# --- CVA (sekwencyjna): jasny piksel = silna zmiana koloru (ΔE w LAB) ---
+# Liczone z tych samych tile'ów RGB co SSIM (z=7), z tym samym cloud maskingiem
+# (chmura → NaN, inaczej pojawienie się chmury = fałszywa zmiana koloru). Wykrywa
+# zmiany koloru BEZ struktury (wysychanie, pożar, zmiana pokrywy) — uzupełnia SSIM.
+CVA_CMAP = "plasma"
+# ΔE poniżej progu percepcji (CIE ~10) → przezroczyste (filtr szumu + czysty glob).
+CVA_MIN_CHANGE = 10.0
+# Zakres normalizacji koloru: ΔE = CVA_VRANGE → pełne nasycenie (silna zmiana).
+CVA_VRANGE = 40.0
 
 
 def build_region_heatmaps(
@@ -143,6 +156,51 @@ def build_region_ndvi_heatmaps(
     return rendered
 
 
+def build_region_cva_heatmaps(
+    region: str,
+    coords: list[tuple[int, int, int]],
+    date_before: str,
+    date_after: str,
+) -> int:
+    """Renderuje PNG mapy zmiany koloru CVA (ΔE w LAB) per tile regionu (first-vs-last).
+
+    Chmury maskowane na NaN (jak SSIM); ΔE < progu percepcji → przezroczyste.
+    Jasny piksel = silna zmiana koloru. Zwraca liczbę wyrenderowanych tile'ów.
+    """
+    out_dir = PROCESSED_DIR / region / "cva_heatmap"
+    rendered = 0
+    for z, x, y in coords:
+        p_before = find_tile(RGB_DIR, date_before, z, x, y)
+        p_after = find_tile(RGB_DIR, date_after, z, x, y)
+        if not (p_before and p_after):
+            continue
+
+        before = _load_rgb(p_before)
+        after = _load_rgb(p_after)
+        qa_before = cloud_proxy_qa(before)
+        qa_after = cloud_proxy_qa(after)
+
+        # Chmury → NaN przed CVA (inaczej pojawienie się chmury = fałszywa zmiana koloru).
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", InsufficientDataWarning)
+            before_masked = apply_cloud_mask(before, qa_before, CLOUD_QA_THRESHOLD)
+            after_masked = apply_cloud_mask(after, qa_after, CLOUD_QA_THRESHOLD)
+
+        delta_e = compute_cva(after_masked, before_masked)
+
+        # Zmiany poniżej progu percepcji (szum) → NaN → przezroczyste.
+        delta_e = np.where(delta_e < CVA_MIN_CHANGE, np.nan, delta_e)
+        if np.all(np.isnan(delta_e)):
+            continue  # tile bez istotnej zmiany koloru — nie zapisujemy pustego PNG
+
+        tile_path = out_dir / str(z) / str(x) / f"{y}.png"
+        tile_path.parent.mkdir(parents=True, exist_ok=True)
+        export_heatmap(delta_e, tile_path, colormap=CVA_CMAP, vmin=CVA_MIN_CHANGE, vmax=CVA_VRANGE)
+        rendered += 1
+
+    return rendered
+
+
 def main() -> None:
     # --- SSIM (HLS_RGB, z=7) ---
     rgb_dates = get_dates(RGB_DIR)
@@ -159,6 +217,21 @@ def main() -> None:
                 print(f"  Brak wspólnych tile'ów {ssim_before}/{ssim_after} — pominięto")
     else:
         print(f"Za mało dat HLS_RGB ({len(rgb_dates)}) — pomijam SSIM.")
+
+    # --- CVA (HLS_RGB, z=7) — ta sama para dat co SSIM ---
+    if len(rgb_dates) >= 2:
+        cva_before, cva_after = rgb_dates[0], rgb_dates[-1]
+        for region in REGIONS:
+            print(f"\n=== {region.upper()} · CVA ===")
+            coords = sorted(set(region_tiles(region, ZOOM)))
+            n = build_region_cva_heatmaps(region, coords, cva_before, cva_after)
+            out = PROCESSED_DIR / region / "cva_heatmap"
+            if n:
+                print(f"  Heatmapy CVA {cva_before} → {cva_after}: {n} tile'ów → {out}")
+            else:
+                print(f"  Brak istotnej zmiany koloru {cva_before}/{cva_after} — pominięto")
+    else:
+        print(f"Za mało dat HLS_RGB ({len(rgb_dates)}) — pomijam CVA.")
 
     # --- NDVI (MODIS_NDVI, z=6) ---
     ndvi_dates = get_dates(NDVI_DIR)
