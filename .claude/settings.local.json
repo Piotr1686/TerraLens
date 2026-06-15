@@ -152,7 +152,12 @@
       "Bash(VITE_CHANGES_URL=/changes.json npx vite *)",
       "Bash(node -e \"const p=require\\('./package.json'\\); for \\(const k of Object.keys\\(p.dependencies\\)\\) if\\(k.includes\\('deck'\\)||k.includes\\('luma'\\)||k.includes\\('pmtiles'\\)||k.includes\\('three'\\)\\) console.log\\(k, p.dependencies[k]\\)\")",
       "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\).on\\('end',\\(\\)=>console.log\\('core installed:',JSON.parse\\(d\\).version\\)\\)\")",
-      "Bash(echo \"\\(rc=$? — 0=ignorowany, 1=śledzony\\)\")"
+      "Bash(echo \"\\(rc=$? — 0=ignorowany, 1=śledzony\\)\")",
+      "Bash(PYTHONIOENCODING=utf-8 \"C:/Users/plazo/miniconda3/envs/terralens/python.exe\" scripts/build_heatmaps.py)",
+      "Bash(PYTHONIOENCODING=utf-8 C:/Users/plazo/miniconda3/envs/terralens/python.exe *)",
+      "Bash(PYTHONIOENCODING=utf-8 \"C:/Users/plazo/miniconda3/envs/terralens/python.exe\" -m ruff check scripts/build_heatmaps.py src/terralens/__main__.py)",
+      "Bash(echo \"--- ruff rc=$? ---\")",
+      "Bash(PYTHONIOENCODING=utf-8 \"C:/Users/plazo/miniconda3/envs/terralens/python.exe\" -m ruff check --fix scripts/build_heatmaps.py src/terralens/__main__.py)"
     ]
   }
 }
