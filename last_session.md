@@ -2,6 +2,7 @@
 
 Sesja: 2026-06-04 · 20:30-21:20
 Status: ✓ Zakończona poprawnie
+Punkt odniesienia (git): 25f93c1 @ master
 
 ---
 
