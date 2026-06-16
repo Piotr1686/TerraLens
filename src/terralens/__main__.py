@@ -128,6 +128,9 @@ def process(
     zoom: str = typer.Option(
         "6", help="Poziomy zoomu (filtr tile'ów po bbox regionu), np. '6,7,8'."
     ),
+    date_filter: str = typer.Option(
+        "", "--date", help="Filtr daty YYYY-MM-DD; pusty = wszystkie daty (SR tylko snapshotu)."
+    ),
     force: bool = typer.Option(False, help="Wymuś ponowne przetworzenie."),
 ) -> None:
     """Uruchamia Real-ESRGAN 4× SR na pobranych tile'ach -> {layer}_SR/."""
@@ -162,9 +165,16 @@ def process(
     all_tiles = scan_tiles(src_dir)
     tiles = [(z, x, y, p) for z, x, y, p in all_tiles if (z, x, y) in region_set]
 
+    # Filtr daty: SR-ujemy tylko snapshot (najnowszą datę) zamiast wszystkich dat —
+    # glob to snapshot, build_pmtiles i tak deduplikuje (z,x,y) do najpóźniejszej daty.
+    # Segment daty to pierwszy człon ścieżki względem src_dir: {date}/{z}/{x}/{y}.
+    if date_filter:
+        tiles = [t for t in tiles if t[3].relative_to(src_dir).parts[0] == date_filter]
+
     if not tiles:
+        date_msg = f" data={date_filter}" if date_filter else ""
         console.print(
-            f"[yellow]Brak tile'ów dla regionu {region!r} zoom={zoom} w:[/yellow] {src_dir}"
+            f"[yellow]Brak tile'ów dla regionu {region!r} zoom={zoom}{date_msg} w:[/yellow] {src_dir}"
         )
         raise typer.Exit(1)
 
@@ -232,6 +242,9 @@ def export(
     region: str = typer.Option("amazonia", help="Region (amazonia/dubai/arctic)."),
     output: str = typer.Option("data/export", help="Katalog wyjściowy PMTiles."),
     layer: str = typer.Option("HLS_RGB", help="Warstwa źródłowa (HLS_RGB/MODIS_NDVI)."),
+    sr: bool = typer.Option(
+        False, "--sr", help="Eksportuj z {layer}_SR/ (super-resolution) zamiast surowego GIBS."
+    ),
 ) -> None:
     """Eksportuje pobrane tile'y do pliku PMTiles (WebP, quality=85)."""
     from datetime import datetime, timezone
@@ -246,9 +259,11 @@ def export(
         console.print(f"[red]Nieznany region:[/red] {region!r}. Dostępne: {list(REGIONS)}")
         raise typer.Exit(1)
 
-    tile_dir = cfg.data_dir / "tiles" / layer
+    source_layer = f"{layer}_SR" if sr else layer
+    tile_dir = cfg.data_dir / "tiles" / source_layer
     if not tile_dir.exists():
-        console.print(f"[red]Brak tile'ów w:[/red] {tile_dir} (uruchom najpierw: terralens fetch)")
+        hint = "terralens process" if sr else "terralens fetch"
+        console.print(f"[red]Brak tile'ów w:[/red] {tile_dir} (uruchom najpierw: {hint})")
         raise typer.Exit(1)
 
     bounds = REGIONS[region]
@@ -257,14 +272,14 @@ def export(
 
     metadata = {
         "bounds": bounds,
-        "source_layer": layer,
+        "source_layer": source_layer,
         "region": region,
         "tile_size": cfg.tile_size,
         "creation_date": datetime.now(tz=timezone.utc).isoformat(),
     }
 
     console.print(
-        f"[cyan]Eksport:[/cyan] {region} | [cyan]Warstwa:[/cyan] {layer} | "
+        f"[cyan]Eksport:[/cyan] {region} | [cyan]Warstwa:[/cyan] {source_layer} | "
         f"[cyan]Źródło:[/cyan] {tile_dir}"
     )
 
