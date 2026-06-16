@@ -157,7 +157,10 @@
       "Bash(PYTHONIOENCODING=utf-8 C:/Users/plazo/miniconda3/envs/terralens/python.exe *)",
       "Bash(PYTHONIOENCODING=utf-8 \"C:/Users/plazo/miniconda3/envs/terralens/python.exe\" -m ruff check scripts/build_heatmaps.py src/terralens/__main__.py)",
       "Bash(echo \"--- ruff rc=$? ---\")",
-      "Bash(PYTHONIOENCODING=utf-8 \"C:/Users/plazo/miniconda3/envs/terralens/python.exe\" -m ruff check --fix scripts/build_heatmaps.py src/terralens/__main__.py)"
+      "Bash(PYTHONIOENCODING=utf-8 \"C:/Users/plazo/miniconda3/envs/terralens/python.exe\" -m ruff check --fix scripts/build_heatmaps.py src/terralens/__main__.py)",
+      "PowerShell(Tee-Object *)",
+      "PowerShell($env:PYTHONIOENCODING=\"utf-8\"; conda run -n terralens --no-capture-output terralens process --region amazonia --layer HLS_RGB --zoom 6,7 --date 2023-07-01)",
+      "PowerShell(Set-Location \"D:\\\\Programming_Projects\\\\TerraLens\"; $env:PYTHONIOENCODING=\"utf-8\"; conda run -n terralens --no-capture-output terralens process --region amazonia --layer HLS_RGB --zoom 6,7 --date 2023-07-01)"
     ]
   }
 }
