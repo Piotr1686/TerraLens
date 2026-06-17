@@ -159,7 +159,7 @@ function App() {
         <div className="absolute bottom-6 right-4 max-w-xs rounded-xl bg-black/50 px-4 py-3 text-xs backdrop-blur">
           {exploreStatus === 'loading' && <p className="text-white/60">Finding best imagery here…</p>}
           {exploreStatus === 'empty' && <p className="text-amber-300/80">No clear imagery available here.</p>}
-          {exploreStatus === 'error' && <p className="text-red-300/80">Failed to load imagery.</p>}
+          {exploreStatus === 'error' && <p className="text-amber-300/80">Imagery service is busy — try again in a moment.</p>}
           {exploreStatus === 'ready' && exploreScene && (
             <>
               <p className="font-medium text-white">

@@ -74,16 +74,41 @@ interface SearchOptions {
   signal?: AbortSignal
 }
 
-async function stacSearch(body: object, signal?: AbortSignal): Promise<StacFeature[]> {
-  const res = await fetch(STAC_SEARCH, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal,
-  })
-  if (!res.ok) throw new Error(`STAC search HTTP ${res.status}`)
-  const data = (await res.json()) as { features?: StacFeature[] }
-  return data.features ?? []
+interface SearchHttpOptions {
+  signal?: AbortSignal
+  /** Timeout pojedynczej próby (ms). Endpoint MPC potrafi wisieć ~30 s przed 504. */
+  timeoutMs?: number
+  /** Liczba ponowień przy 504/503/timeout (przejściowe degradacje MPC). */
+  retries?: number
+}
+
+async function stacSearch(
+  body: object,
+  { signal, timeoutMs = 12000, retries = 1 }: SearchHttpOptions = {},
+): Promise<StacFeature[]> {
+  let lastErr: unknown
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    // Łączymy zewnętrzny abort (nowsze zapytanie) z timeoutem próby.
+    const timeout = AbortSignal.timeout(timeoutMs)
+    const combined = signal ? AbortSignal.any([signal, timeout]) : timeout
+    try {
+      const res = await fetch(STAC_SEARCH, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: combined,
+      })
+      // 504/503 = przejściowa degradacja bramy MPC → traktuj jak błąd do ponowienia.
+      if (res.status === 504 || res.status === 503) throw new Error(`STAC ${res.status}`)
+      if (!res.ok) throw new Error(`STAC search HTTP ${res.status}`)
+      const data = (await res.json()) as { features?: StacFeature[] }
+      return data.features ?? []
+    } catch (err) {
+      if (signal?.aborted) throw err // anulowanie przez nowsze zapytanie — przerwij
+      lastErr = err
+    }
+  }
+  throw lastErr
 }
 
 // STAC bbox bywa 4- lub 6-elementowy (3D) — bierzemy płaskie [w,s,e,n].
@@ -114,7 +139,10 @@ function buildScene(source: Source, f: StacFeature, lon: number, lat: number): S
   }
 }
 
-/** NAIP nad punktem — najnowsza scena (brak chmur w tym produkcie). null poza USA. */
+/**
+ * NAIP nad punktem — najnowsza scena (brak chmur w tym produkcie). null poza USA.
+ * To bonus, nie fallback — krótki timeout i bez retry, żeby nie blokować ścieżki na S2.
+ */
 async function pickNaip(lon: number, lat: number, signal?: AbortSignal): Promise<SceneResult | null> {
   const features = await stacSearch(
     {
@@ -123,7 +151,7 @@ async function pickNaip(lon: number, lat: number, signal?: AbortSignal): Promise
       sortby: [{ field: 'properties.datetime', direction: 'desc' }],
       limit: 1,
     },
-    signal,
+    { signal, timeoutMs: 8000, retries: 0 },
   )
   return features.length ? buildScene('naip', features[0], lon, lat) : null
 }
@@ -134,17 +162,23 @@ async function pickSentinel(
   lat: number,
   { maxCloud = 20, maxItems = 40, signal }: SearchOptions = {},
 ): Promise<SceneResult | null> {
-  const features = await stacSearch(
-    {
-      collections: ['sentinel-2-l2a'],
-      intersects: { type: 'Point', coordinates: [lon, lat] },
-      query: { 'eo:cloud_cover': { lt: maxCloud } },
-      sortby: [{ field: 'properties.datetime', direction: 'desc' }],
-      limit: maxItems,
-    },
-    signal,
-  )
+  const search = (cloud: number) =>
+    stacSearch(
+      {
+        collections: ['sentinel-2-l2a'],
+        intersects: { type: 'Point', coordinates: [lon, lat] },
+        query: { 'eo:cloud_cover': { lt: cloud } },
+        sortby: [{ field: 'properties.datetime', direction: 'desc' }],
+        limit: maxItems,
+      },
+      { signal },
+    )
+
+  // Degradacja: brak czystej sceny → poluzuj próg chmur (lepiej gorsze zdjęcie niż nic).
+  let features = await search(maxCloud)
+  if (!features.length) features = await search(80)
   if (!features.length) return null
+
   // min cloud_cover; lista desc po dacie → reduce zachowuje najnowszą przy remisie.
   const best = features.reduce((acc, f) =>
     (f.properties['eo:cloud_cover'] ?? 100) < (acc.properties['eo:cloud_cover'] ?? 100) ? f : acc,
@@ -155,14 +189,22 @@ async function pickSentinel(
 /**
  * Wybierz najlepsze realne źródło nad punktem: NAIP (0.6 m, USA) jeśli dostępne,
  * inaczej Sentinel-2 (10 m, globalnie). Zwraca null gdy brak czystej sceny S2.
+ *
+ * Degradacja łagodna: awaria NAIP (timeout/HTTP 5xx — endpoint bywa wolny dla dużych
+ * scen USA) NIE blokuje fallbacku na S2; lepiej pokazać gorsze zdjęcie niż „Failed".
  */
 export async function resolveScene(
   lon: number,
   lat: number,
   opts: SearchOptions = {},
 ): Promise<SceneResult | null> {
-  const naip = await pickNaip(lon, lat, opts.signal)
-  if (naip) return naip
+  try {
+    const naip = await pickNaip(lon, lat, opts.signal)
+    if (naip) return naip
+  } catch (err) {
+    if (opts.signal?.aborted) throw err // anulowanie przez nowsze zapytanie — nie maskuj
+    console.warn('NAIP niedostępny, fallback na Sentinel-2:', err)
+  }
   return pickSentinel(lon, lat, opts)
 }
 
