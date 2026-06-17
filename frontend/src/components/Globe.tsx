@@ -21,13 +21,15 @@ interface Props {
   tileUrl?: string
   extraLayers?: Layer[]
   flyTarget?: string | null
+  flyToCoords?: { longitude: number; latitude: number; zoom: number } | null
+  maxZoom?: number
   onRegionSelect?: (regionId: string | null) => void
   onRegionArrival?: (regionId: string) => void
   onViewZoomChange?: (zoom: number) => void
   fps?: number
 }
 
-export function Globe({ tileUrl = BLUE_MARBLE, extraLayers = [], flyTarget, onRegionSelect, onRegionArrival, onViewZoomChange, fps = 60 }: Props) {
+export function Globe({ tileUrl = BLUE_MARBLE, extraLayers = [], flyTarget, flyToCoords, maxZoom = 16, onRegionSelect, onRegionArrival, onViewZoomChange, fps = 60 }: Props) {
   const [viewState, setViewState] = useState<MapViewState>(INITIAL_VIEW)
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
   const lastReportedZoom = useRef(INITIAL_VIEW.zoom)
@@ -59,6 +61,13 @@ export function Globe({ tileUrl = BLUE_MARBLE, extraLayers = [], flyTarget, onRe
     const region = REGIONS.find((r) => r.id === flyTarget)
     if (region) flyToRegion(region)
   }, [flyTarget]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Tryb Explore — lot do dowolnego punktu (wyszukiwarka). Czyści zaznaczenie regionu.
+  useEffect(() => {
+    if (!flyToCoords) return
+    setSelectedRegion(null)
+    cinematicFly(flyToCoords, { duration: 2400, fps }, setViewState)
+  }, [flyToCoords]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cross-fade state
   const [currentUrl, setCurrentUrl] = useState(tileUrl)
@@ -110,9 +119,11 @@ export function Globe({ tileUrl = BLUE_MARBLE, extraLayers = [], flyTarget, onRe
         onViewStateChange={({ viewState: vs, interactionState }) => {
           const s = interactionState as { isDragging?: boolean; isZooming?: boolean; isPanning?: boolean; isRotating?: boolean }
           if (s.isDragging || s.isZooming || s.isPanning || s.isRotating) cancelFlight()
-          setFlightPos(vs as MapViewState)
-          setViewState(vs as MapViewState)
-          const newZoom = (vs as MapViewState).zoom ?? 0
+          // Cap zoomu street-level — kontroler GlobeView nie ma opcji maxZoom, clampujemy ręcznie.
+          const clamped = { ...(vs as MapViewState), zoom: Math.min((vs as MapViewState).zoom ?? 0, maxZoom) }
+          setFlightPos(clamped)
+          setViewState(clamped)
+          const newZoom = clamped.zoom ?? 0
           if (onViewZoomChange && Math.abs(newZoom - lastReportedZoom.current) >= 0.5) {
             lastReportedZoom.current = newZoom
             onViewZoomChange(newZoom)

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Globe } from '@/components/Globe'
 import { Starfield } from '@/components/Starfield'
+import { SearchBox } from '@/components/SearchBox'
 import { REGIONS } from '@/data/regions'
 import { ArrivalRing } from '@/components/ArrivalRing'
 import { RegionHUD } from '@/components/RegionHUD'
@@ -17,7 +18,9 @@ import { useTour } from '@/hooks/useTour'
 import { usePreload } from '@/hooks/usePreload'
 import { useRevealOpacity } from '@/hooks/useRevealOpacity'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
+import { useSentinelLayer } from '@/hooks/useSentinelLayer'
 import type { HeatmapMetric } from '@/hooks/useHeatmapLayer'
+import type { GeocodeResult } from '@/lib/geocode'
 
 function App() {
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
@@ -26,6 +29,10 @@ function App() {
   const [heatmapMetric, setHeatmapMetric] = useState<HeatmapMetric>('ndvi')
   const [heatmapOpacity, setHeatmapOpacity] = useState(0.6)
   const [viewportZoom, setViewportZoom] = useState(1.0)
+
+  // Tryb Explore (S10 WS3) — wyszukiwanie dowolnego miejsca + warstwa Sentinel-2 (MPC).
+  const [exploreTarget, setExploreTarget] = useState<{ lon: number; lat: number } | null>(null)
+  const [flyCoords, setFlyCoords] = useState<{ longitude: number; latitude: number; zoom: number } | null>(null)
 
   const isMobile = useMediaQuery('(max-width: 768px)')
   const fps = isMobile ? 30 : 60
@@ -103,6 +110,27 @@ function App() {
     bbox: arrivedBbox,
   })
 
+  const { layers: sentinelLayers, scene: sentinelScene, status: sentinelStatus } = useSentinelLayer({
+    target: exploreTarget,
+  })
+
+  // Wyszukiwarka → wejście w tryb Explore nad punktem (przerywa tour i czyści region).
+  const handleSearchSelect = useCallback(
+    (r: GeocodeResult) => {
+      if (isRunning) stop()
+      setSelectedRegion(null)
+      setArrivedRegion(null)
+      setExploreTarget({ lon: r.lon, lat: r.lat })
+      setFlyCoords({ longitude: r.lon, latitude: r.lat, zoom: 13 })
+    },
+    [isRunning, stop],
+  )
+
+  const handleSearchClear = useCallback(() => {
+    setExploreTarget(null)
+    setFlyCoords({ longitude: 0, latitude: 20, zoom: 1.0 })
+  }, [])
+
   const flyTarget = isRunning ? (currentStep?.regionId ?? null) : undefined
 
   const arrivedRegionObj = arrivedRegion
@@ -114,13 +142,30 @@ function App() {
       <Starfield />
       <Globe
         tileUrl={tileUrl}
-        extraLayers={[...pmtilesLayers, ...heatmapLayers]}
+        extraLayers={[...pmtilesLayers, ...heatmapLayers, ...sentinelLayers]}
         flyTarget={flyTarget}
+        flyToCoords={flyCoords}
         onRegionSelect={handleRegionSelect}
         onRegionArrival={handleRegionArrival}
         onViewZoomChange={setViewportZoom}
         fps={fps}
       />
+      <SearchBox onSelect={handleSearchSelect} onClear={handleSearchClear} active={!!exploreTarget} />
+      {exploreTarget && (
+        <div className="absolute bottom-6 right-4 max-w-xs rounded-xl bg-black/50 px-4 py-3 text-xs backdrop-blur">
+          {sentinelStatus === 'loading' && <p className="text-white/60">Finding clearest Sentinel-2 scene…</p>}
+          {sentinelStatus === 'empty' && <p className="text-amber-300/80">No clear Sentinel-2 scene here.</p>}
+          {sentinelStatus === 'error' && <p className="text-red-300/80">Failed to load Sentinel-2 scene.</p>}
+          {sentinelStatus === 'ready' && sentinelScene && (
+            <>
+              <p className="font-medium text-white">
+                {new Date(sentinelScene.datetime).toLocaleDateString()} · {sentinelScene.cloudCover.toFixed(1)}% cloud
+              </p>
+              <p className="mt-1 text-white/50">Sentinel-2 L2A · Microsoft Planetary Computer</p>
+            </>
+          )}
+        </div>
+      )}
       {arrivedRegion && <ArrivalRing key={arrivedRegion} />}
       <RegionHUD region={arrivedRegionObj} />
       <GuidedTour

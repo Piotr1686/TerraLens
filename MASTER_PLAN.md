@@ -59,13 +59,14 @@ Tylko gdy:
 | **S0** | Pre-flight (PoC + środowisko) | — (przed T1) | ✓ DONE (2026-04-25) |
 | **S1** | CLI skeleton + config system | T1 | ✓ DONE (2026-04-25) |
 | **S2** | Data fetchers (GIBS + SRTM) | T1–T2 | ✓ DONE (2026-04-25) |
-| **S3** | AI upscaling (Satlas ESRGAN) | T2 | ⧗ |
-| **S4** | Change detection pipeline | T2 | ⧗ |
-| **S5** | Export do PMTiles | T2 | ⧗ |
-| **S6** | **Frontend PoC (DECISION GATE)** | T3 | ⧗ |
+| **S3** | AI upscaling (Real-ESRGAN x4 — pivot z Satlas) | T2 | ✓ DONE (2026-04-26) |
+| **S4** | Change detection pipeline | T2 | ✓ DONE (2026-04-26) |
+| **S5** | Export do PMTiles | T2 | ✓ DONE (2026-04-28) |
+| **S6** | **Frontend PoC (DECISION GATE)** | T3 | ✓ DONE (2026-04-30) |
 | **S7** | Frontend build (wybrany silnik) | T3–T4 | ✓ DONE (2026-05-02) |
 | **S8** | 10-Second Hook polish + preloader | T4 | ✓ DONE (2026-05-02) |
 | **S9** | Deploy (HF CDN + Vercel) + 3 regiony | T5 | ✓ DONE (2026-05-11) |
+| **S10** | Explore Mode (Sentinel-2 / MPC, zero-backend) | post-MVP | ⟳ (WS3 ✓ 2026-06-17) |
 
 Legenda: ✓ DONE · ⟳ IN PROGRESS · ⧗ TODO · ✗ BLOCKED
 
@@ -411,9 +412,13 @@ Uzasadnienie: T0.1 (PoC Satlas) wymaga torch+CUDA, które instaluje T0.2. T0.5 (
 
 ---
 
-## 🤖 SPRINT 3 — AI Upscaling (Satlas ESRGAN)
+## 🤖 SPRINT 3 — AI Upscaling (Real-ESRGAN x4)
 
 **Cel:** Upscale 4x tile'ów satelitarnych, stabilny VRAM.
+
+> **⚠️ PIVOT silnika SR (post-S8):** Satlas SwinB FPN dawał czarne kafle w pipeline PMTiles
+> i został porzucony. Produkcyjny silnik to **Real-ESRGAN RRDBNet x4** (`src/terralens/engines/realesrgan.py`).
+> Nazwa „Satlas" poniżej jest historyczna — czytaj jako Real-ESRGAN. Szczegóły: MEMORY `project_sr_engine_pivot`.
 
 ### T3.1 — Satlas ESRGAN wrapper z singleton loading ✓ DONE (2026-04-26)
 - **Dependencies:** S2 complete + T0.1 PASS
@@ -880,6 +885,46 @@ Tag: `git tag v0.1.0 && git push --tags`
 
 ---
 
+## 🔭 SPRINT 10 — Explore Mode (Sentinel-2 / MPC, zero-backend)
+
+**Cel:** Wyjście poza 3 predefiniowane regiony — wyszukiwanie dowolnego miejsca + zoom
+street-level (10 m) z Sentinel-2 L2A. Front woła Microsoft Planetary Computer (MPC)
+bezpośrednio: STAC + hostowany tiler mają CORS `ACAO:*` → **backend niepotrzebny**.
+
+**Geneza:** cel projektu (MEMORY `project_high_resolution_target`) + pivot na S2 po
+PoC S2 (commit `198db31`). Architektura zatwierdzona przez /architect (plan
+`joyful-twirling-nova.md`). Workstreamy: WS1 PoC (✓), WS2 backend-decision = zero-backend (✓),
+WS3 frontend Explore (✓), WS4 polish (⧗).
+
+### T10.3 — Frontend Explore Mode ✓ DONE (2026-06-17)
+- **Dependencies:** S9 + PoC S2 (`scripts/poc_sentinel2.py`)
+- **Output:** `frontend/src/lib/mpc.ts`, `frontend/src/lib/geocode.ts`,
+  `frontend/src/hooks/useSentinelLayer.ts`, `frontend/src/components/SearchBox.tsx`;
+  zmiany w `Globe.tsx` (`flyToCoords`, `maxZoom`) i `App.tsx` (stan Explore + atrybucja).
+- **Implementacja:**
+  - `mpc.ts` — port scene-pick z PoC: `pickScene()` (STAC POST, min cloud), `sentinelTileUrlTemplate()`
+    (deck.gl TileLayer, `assets=visual`), `lonLatToTile()`.
+  - `geocode.ts` — Nominatim (jsonv2, debounce po stronie UI; ToS ≤1 req/s).
+  - `useSentinelLayer.ts` — mirror `Globe.tsx makeTileLayer`, `maxZoom:14`, `extent: scene.bbox`,
+    guard reqId na wyścig + AbortController; eksponuje `status` (idle/loading/ready/empty/error).
+  - `SearchBox.tsx` — debounce 600 ms + abort, lista trafień, onSelect/onClear.
+  - `App.tsx` — tryb addytywny: wybór miejsca przerywa tour, czyści region, leci do punktu (z13).
+- **DoD:**
+  - [x] `npx tsc -b` + `npm run build` czysto
+  - [x] STAC POST + tile endpoint zweryfikowane na żywo (Dubai: HTTP 200 image/png z13)
+  - [x] Tryb Explore nie psuje trybu 3-regionowego (addytywne extraLayers)
+  - [ ] Smoke ręczny w `npm run dev` (wpisać miasto → lot + kafle S2) — do potwierdzenia przez Piotra
+
+### T10.4 — Explore polish ⧗ TODO (WS4)
+- **Dependencies:** T10.3
+- **Zakres:** picker daty/cloud, dokładniejszy cap kamery per-strefa, rozbudowane stany
+  empty/error, opcjonalny ESRGAN-dopał na kaflach S2 (otwarte pytanie — przy realnym 10 m
+  prawdopodobnie zbędny).
+
+**🏁 Sprint 10 complete when:** T10.3–T10.4 ✓ + deploy na Vercel zweryfikowany.
+
+---
+
 ## ⚠️ Risk Mitigation & Fallbacks
 
 ### Scenariusze awaryjne i reakcje
@@ -916,6 +961,7 @@ S6  Frontend PoC + Decision [x] ✓ DONE 2026-04-30
 S7  Frontend Build        [x] ✓ DONE 2026-05-02
 S8  10-Second Hook Polish [x] ✓ DONE 2026-05-02
 S9  Deploy Production     [x] ✓ DONE 2026-05-11
+S10 Explore Mode (S2/MPC) [~] ⟳ WS3 ✓ 2026-06-17 · WS4 polish ⧗
 ```
 
 **Estymaty czasowe (solo dev, part-time):**
