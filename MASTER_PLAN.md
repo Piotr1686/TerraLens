@@ -919,11 +919,28 @@ WS3 frontend Explore (✓), WS4 polish (⧗).
   - [x] Smoke ręczny w `npm run dev` (Dubai Marina → lot + kafle S2) potwierdzony przez Piotra
   - [ ] Smoke NAIP w `npm run dev` (np. San Francisco → 0.6 m) — do potwierdzenia wizualnie
 
-### T10.4 — Explore polish ⧗ TODO (WS4)
+### T10.4 — Explore: oś czasu + przełącznik źródła ✓ DONE (2026-06-17)
 - **Dependencies:** T10.3
-- **Zakres:** picker daty/cloud, dokładniejszy cap kamery per-strefa, rozbudowane stany
-  empty/error, opcjonalny ESRGAN-dopał na kaflach S2 (otwarte pytanie — przy realnym 10 m
-  prawdopodobnie zbędny).
+- **Output:** `frontend/src/hooks/useExploreSelection.ts`, `frontend/src/components/ExploreControls.tsx`;
+  refaktor `useExploreLayer.ts` (split: `useExploreScenes` lista + `useExploreLayer` warstwa);
+  `mpc.ts` `listScenes()` zamiast `resolveScene()`.
+- **Implementacja:**
+  - `mpc.ts listScenes()` — listy scen obu źródeł nad punktem (NAIP limit 24, S2 limit 250),
+    sortby datetime desc, **bez filtra chmur** (wszystkie daty). NAIP opcjonalny (catch→[]), S2 błąd propaguje.
+  - `useExploreScenes(target)` — pobiera listy (race guard + AbortController), status idle/loading/ready/empty/error.
+  - `useExploreSelection(scenes)` — stan: źródło (NAIP/S2), filtr „tylko bezchmurne" (<20%, off domyślnie),
+    indeks daty; reset na najnowszą przy zmianie źródła/filtra; domyślnie NAIP jeśli dostępny.
+  - `ExploreControls.tsx` — przełącznik źródła (NAIP disabled poza USA), toggle „Clear skies only",
+    suwak dat (lewo=stare, prawo=nowe) z etykietą data + % chmur.
+  - `App.tsx` — chowa Timeline 3-regionów w trybie Explore; atrybucja zredukowana do providera.
+- **DoD:**
+  - [x] `tsc -b` + `vite build` czysto
+  - [x] Listy zweryfikowane na żywo: S2 Dubai (8 dat co ~5 dni, cloud 0–11.8%), NAIP SF (6 dat 2012–2022)
+  - [ ] Smoke wizualny (przełączanie źródła/dat/filtra na `npm run dev`) — do potwierdzenia przez Piotra
+
+### T10.5 — Explore polish (pozostałe) ⧗ TODO
+- **Zakres:** dokładniejszy cap kamery per-strefa, rozbudowane stany empty/error, paginacja >250 scen S2,
+  opcjonalny ESRGAN-dopał na kaflach S2 (świadomie odłożony — patrz MEMORY `project_explore_source_cascade`).
 
 **🏁 Sprint 10 complete when:** T10.3–T10.4 ✓ + deploy na Vercel zweryfikowany.
 

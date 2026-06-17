@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Globe } from '@/components/Globe'
 import { Starfield } from '@/components/Starfield'
 import { SearchBox } from '@/components/SearchBox'
+import { ExploreControls } from '@/components/ExploreControls'
 import { REGIONS } from '@/data/regions'
 import { ArrivalRing } from '@/components/ArrivalRing'
 import { RegionHUD } from '@/components/RegionHUD'
@@ -18,7 +19,8 @@ import { useTour } from '@/hooks/useTour'
 import { usePreload } from '@/hooks/usePreload'
 import { useRevealOpacity } from '@/hooks/useRevealOpacity'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
-import { useExploreLayer } from '@/hooks/useExploreLayer'
+import { useExploreScenes, useExploreLayer } from '@/hooks/useExploreLayer'
+import { useExploreSelection } from '@/hooks/useExploreSelection'
 import type { HeatmapMetric } from '@/hooks/useHeatmapLayer'
 import type { GeocodeResult } from '@/lib/geocode'
 
@@ -110,9 +112,10 @@ function App() {
     bbox: arrivedBbox,
   })
 
-  const { layers: exploreLayers, scene: exploreScene, status: exploreStatus } = useExploreLayer({
-    target: exploreTarget,
-  })
+  const { scenes: exploreScenes, status: exploreStatus } = useExploreScenes(exploreTarget)
+  const exploreSel = useExploreSelection(exploreScenes)
+  const exploreScene = exploreSel.scene
+  const exploreLayers = useExploreLayer({ scene: exploreScene })
 
   // Cap kamery per źródło — odrobina headroomu nad natywnym sufitem kafli (NAIP z18, S2 z14).
   const exploreMaxZoom = exploreScene ? exploreScene.maxZoom + 0.5 : 16
@@ -157,19 +160,23 @@ function App() {
       <SearchBox onSelect={handleSearchSelect} onClear={handleSearchClear} active={!!exploreTarget} />
       {exploreTarget && (
         <div className="absolute bottom-6 right-4 max-w-xs rounded-xl bg-black/50 px-4 py-3 text-xs backdrop-blur">
-          {exploreStatus === 'loading' && <p className="text-white/60">Finding best imagery here…</p>}
-          {exploreStatus === 'empty' && <p className="text-amber-300/80">No clear imagery available here.</p>}
+          {exploreStatus === 'loading' && <p className="text-white/60">Finding imagery here…</p>}
+          {exploreStatus === 'empty' && <p className="text-amber-300/80">No imagery available here.</p>}
           {exploreStatus === 'error' && <p className="text-amber-300/80">Imagery service is busy — try again in a moment.</p>}
-          {exploreStatus === 'ready' && exploreScene && (
-            <>
-              <p className="font-medium text-white">
-                {new Date(exploreScene.datetime).toLocaleDateString()}
-                {exploreScene.cloudCover !== null && ` · ${exploreScene.cloudCover.toFixed(1)}% cloud`}
-              </p>
-              <p className="mt-1 text-white/50">{exploreScene.label}</p>
-            </>
-          )}
+          {exploreStatus === 'ready' && exploreScene && <p className="text-white/60">{exploreScene.label}</p>}
         </div>
+      )}
+      {exploreTarget && exploreStatus === 'ready' && (
+        <ExploreControls
+          source={exploreSel.source}
+          onSourceChange={exploreSel.setSource}
+          hasNaip={exploreSel.hasNaip}
+          clearOnly={exploreSel.clearOnly}
+          onClearOnlyChange={exploreSel.setClearOnly}
+          available={exploreSel.available}
+          dateIndex={exploreSel.dateIndex}
+          onDateIndexChange={exploreSel.setDateIndex}
+        />
       )}
       {arrivedRegion && <ArrivalRing key={arrivedRegion} />}
       <RegionHUD region={arrivedRegionObj} />
@@ -181,7 +188,7 @@ function App() {
         onStop={stop}
         onReplay={replay}
       />
-      <Timeline dates={dates} dateIndex={dateIndex} onDateChange={setDateIndex} showPlay={!!arrivedRegion} />
+      {!exploreTarget && <Timeline dates={dates} dateIndex={dateIndex} onDateChange={setDateIndex} showPlay={!!arrivedRegion} />}
       {arrivedRegion && (
         <HeatmapControls
           metric={heatmapMetric}

@@ -67,12 +67,16 @@ interface StacFeature {
   }
 }
 
-interface SearchOptions {
-  /** Maks. eo:cloud_cover w % (tylko S2, domyślnie 20). */
-  maxCloud?: number
-  maxItems?: number
+interface ListOptions {
   signal?: AbortSignal
 }
+
+/** Listy dostępnych scen per źródło dla danego punktu (posortowane datą desc). */
+export type SceneList = Record<Source, SceneResult[]>
+
+// Ile scen pobrać per źródło. S2 ma rewizytę ~5 dni → 250 ≈ ~3.5 roku historii.
+// NAIP ma kilka akwizycji (co ~2 lata) → mała liczba wystarcza.
+const LIST_LIMIT: Record<Source, number> = { naip: 24, 'sentinel-2': 250 }
 
 interface SearchHttpOptions {
   signal?: AbortSignal
@@ -139,73 +143,40 @@ function buildScene(source: Source, f: StacFeature, lon: number, lat: number): S
   }
 }
 
-/**
- * NAIP nad punktem — najnowsza scena (brak chmur w tym produkcie). null poza USA.
- * To bonus, nie fallback — krótki timeout i bez retry, żeby nie blokować ścieżki na S2.
- */
-async function pickNaip(lon: number, lat: number, signal?: AbortSignal): Promise<SceneResult | null> {
+/** Lista scen jednego źródła nad punktem (datą desc, BEZ filtra chmur — wszystkie daty). */
+async function listForSource(
+  source: Source,
+  lon: number,
+  lat: number,
+  http: SearchHttpOptions,
+): Promise<SceneResult[]> {
   const features = await stacSearch(
     {
-      collections: ['naip'],
+      collections: [SOURCES[source].collection],
       intersects: { type: 'Point', coordinates: [lon, lat] },
       sortby: [{ field: 'properties.datetime', direction: 'desc' }],
-      limit: 1,
+      limit: LIST_LIMIT[source],
     },
-    { signal, timeoutMs: 8000, retries: 0 },
+    http,
   )
-  return features.length ? buildScene('naip', features[0], lon, lat) : null
-}
-
-/** Sentinel-2 nad punktem — najmniej zachmurzona świeża scena (remis → najnowsza). */
-async function pickSentinel(
-  lon: number,
-  lat: number,
-  { maxCloud = 20, maxItems = 40, signal }: SearchOptions = {},
-): Promise<SceneResult | null> {
-  const search = (cloud: number) =>
-    stacSearch(
-      {
-        collections: ['sentinel-2-l2a'],
-        intersects: { type: 'Point', coordinates: [lon, lat] },
-        query: { 'eo:cloud_cover': { lt: cloud } },
-        sortby: [{ field: 'properties.datetime', direction: 'desc' }],
-        limit: maxItems,
-      },
-      { signal },
-    )
-
-  // Degradacja: brak czystej sceny → poluzuj próg chmur (lepiej gorsze zdjęcie niż nic).
-  let features = await search(maxCloud)
-  if (!features.length) features = await search(80)
-  if (!features.length) return null
-
-  // min cloud_cover; lista desc po dacie → reduce zachowuje najnowszą przy remisie.
-  const best = features.reduce((acc, f) =>
-    (f.properties['eo:cloud_cover'] ?? 100) < (acc.properties['eo:cloud_cover'] ?? 100) ? f : acc,
-  )
-  return buildScene('sentinel-2', best, lon, lat)
+  return features.map((f) => buildScene(source, f, lon, lat))
 }
 
 /**
- * Wybierz najlepsze realne źródło nad punktem: NAIP (0.6 m, USA) jeśli dostępne,
- * inaczej Sentinel-2 (10 m, globalnie). Zwraca null gdy brak czystej sceny S2.
- *
- * Degradacja łagodna: awaria NAIP (timeout/HTTP 5xx — endpoint bywa wolny dla dużych
- * scen USA) NIE blokuje fallbacku na S2; lepiej pokazać gorsze zdjęcie niż „Failed".
+ * Pobierz listy dostępnych scen dla obu źródeł nad punktem (równolegle).
+ * NAIP jest opcjonalny (USA) — jego awaria/pustka nie psuje listy S2.
+ * S2 to fallback globalny — jego błąd propagujemy (status error w hooku).
  */
-export async function resolveScene(
-  lon: number,
-  lat: number,
-  opts: SearchOptions = {},
-): Promise<SceneResult | null> {
-  try {
-    const naip = await pickNaip(lon, lat, opts.signal)
-    if (naip) return naip
-  } catch (err) {
-    if (opts.signal?.aborted) throw err // anulowanie przez nowsze zapytanie — nie maskuj
-    console.warn('NAIP niedostępny, fallback na Sentinel-2:', err)
-  }
-  return pickSentinel(lon, lat, opts)
+export async function listScenes(lon: number, lat: number, { signal }: ListOptions = {}): Promise<SceneList> {
+  const [naip, sentinel] = await Promise.all([
+    listForSource('naip', lon, lat, { signal, timeoutMs: 8000, retries: 0 }).catch((err) => {
+      if (signal?.aborted) throw err
+      console.warn('NAIP niedostępny:', err)
+      return [] as SceneResult[]
+    }),
+    listForSource('sentinel-2', lon, lat, { signal }),
+  ])
+  return { naip, 'sentinel-2': sentinel }
 }
 
 /** WebMercator (XYZ) tile (x, y) dla punktu — slippy-map wzór (parytet z PoC). */
