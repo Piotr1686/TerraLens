@@ -3,33 +3,31 @@ import { TileLayer } from '@deck.gl/geo-layers'
 import { BitmapLayer } from '@deck.gl/layers'
 import { COORDINATE_SYSTEM } from '@deck.gl/core'
 import type { Layer } from '@deck.gl/core'
-import { pickScene, sentinelTileUrlTemplate } from '@/lib/mpc'
+import { resolveScene } from '@/lib/mpc'
 import type { SceneResult } from '@/lib/mpc'
 
-export type SentinelStatus = 'idle' | 'loading' | 'ready' | 'empty' | 'error'
+export type ExploreStatus = 'idle' | 'loading' | 'ready' | 'empty' | 'error'
 
 interface Config {
   /** Punkt zainteresowania w trybie Explore; null = tryb wyłączony. */
   target: { lon: number; lat: number } | null
   opacity?: number
-  /** Maks. zoom kafli S2 (street-level). */
-  maxZoom?: number
 }
 
 interface Result {
   layers: Layer[]
   scene: SceneResult | null
-  status: SentinelStatus
+  status: ExploreStatus
 }
 
 /**
- * Dla punktu (lon, lat) wybiera najczystszą scenę S2 (MPC) i buduje deck.gl TileLayer
- * z hostowanego tilera. Mirror makeTileLayer z Globe.tsx — różnica: maxZoom street-level
- * i extent ograniczony do footprintu sceny (mniej pustych żądań poza MGRS-tile).
+ * Dla punktu (lon, lat) wybiera najlepsze realne źródło (kaskada NAIP→S2 w resolveScene)
+ * i buduje deck.gl TileLayer z hostowanego tilera MPC. maxZoom i URL pochodzą ze sceny
+ * (NAIP z18/0.6 m, S2 z14/10 m). Mirror makeTileLayer z Globe.tsx — extent = footprint sceny.
  */
-export function useSentinelLayer({ target, opacity = 1, maxZoom = 14 }: Config): Result {
+export function useExploreLayer({ target, opacity = 1 }: Config): Result {
   const [scene, setScene] = useState<SceneResult | null>(null)
-  const [status, setStatus] = useState<SentinelStatus>('idle')
+  const [status, setStatus] = useState<ExploreStatus>('idle')
   const reqId = useRef(0)
 
   useEffect(() => {
@@ -43,7 +41,7 @@ export function useSentinelLayer({ target, opacity = 1, maxZoom = 14 }: Config):
     const ctrl = new AbortController()
     setStatus('loading')
 
-    pickScene(target.lon, target.lat, { signal: ctrl.signal })
+    resolveScene(target.lon, target.lat, { signal: ctrl.signal })
       .then((result) => {
         if (id !== reqId.current) return // starsze zapytanie — porzuć
         setScene(result)
@@ -51,7 +49,7 @@ export function useSentinelLayer({ target, opacity = 1, maxZoom = 14 }: Config):
       })
       .catch((err) => {
         if (ctrl.signal.aborted || id !== reqId.current) return
-        console.error('useSentinelLayer pickScene:', err)
+        console.error('useExploreLayer resolveScene:', err)
         setScene(null)
         setStatus('error')
       })
@@ -63,10 +61,10 @@ export function useSentinelLayer({ target, opacity = 1, maxZoom = 14 }: Config):
     if (!scene || opacity === 0) return { layers: [], scene, status }
 
     const layer = new TileLayer({
-      id: `sentinel-${scene.itemId}`,
-      data: sentinelTileUrlTemplate(scene.itemId),
+      id: `explore-${scene.source}-${scene.itemId}`,
+      data: scene.tileUrl,
       minZoom: 0,
-      maxZoom,
+      maxZoom: scene.maxZoom,
       tileSize: 256,
       extent: scene.bbox,
       opacity,
@@ -82,5 +80,5 @@ export function useSentinelLayer({ target, opacity = 1, maxZoom = 14 }: Config):
     })
 
     return { layers: [layer], scene, status }
-  }, [scene, opacity, maxZoom, status])
+  }, [scene, opacity, status])
 }

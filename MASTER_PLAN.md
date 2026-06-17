@@ -899,21 +899,25 @@ WS3 frontend Explore (✓), WS4 polish (⧗).
 ### T10.3 — Frontend Explore Mode ✓ DONE (2026-06-17)
 - **Dependencies:** S9 + PoC S2 (`scripts/poc_sentinel2.py`)
 - **Output:** `frontend/src/lib/mpc.ts`, `frontend/src/lib/geocode.ts`,
-  `frontend/src/hooks/useSentinelLayer.ts`, `frontend/src/components/SearchBox.tsx`;
+  `frontend/src/hooks/useExploreLayer.ts`, `frontend/src/components/SearchBox.tsx`;
   zmiany w `Globe.tsx` (`flyToCoords`, `maxZoom`) i `App.tsx` (stan Explore + atrybucja).
 - **Implementacja:**
-  - `mpc.ts` — port scene-pick z PoC: `pickScene()` (STAC POST, min cloud), `sentinelTileUrlTemplate()`
-    (deck.gl TileLayer, `assets=visual`), `lonLatToTile()`.
+  - `mpc.ts` — resolver źródła (kaskada **NAIP→S2**): `resolveScene()` próbuje NAIP (0.6 m, USA,
+    `assets=image` `asset_bidx=image|1,2,3`, z18), fallback Sentinel-2 (10 m, globalnie,
+    `assets=visual`, z14, min cloud). Kafle `@2x` (retina 512 px). `SceneResult` niesie
+    `source/maxZoom/tileUrl/label/cloudCover`. `lonLatToTile()` (parytet z PoC).
   - `geocode.ts` — Nominatim (jsonv2, debounce po stronie UI; ToS ≤1 req/s).
-  - `useSentinelLayer.ts` — mirror `Globe.tsx makeTileLayer`, `maxZoom:14`, `extent: scene.bbox`,
-    guard reqId na wyścig + AbortController; eksponuje `status` (idle/loading/ready/empty/error).
+  - `useExploreLayer.ts` — mirror `Globe.tsx makeTileLayer`, `maxZoom`+`tileUrl` ze sceny,
+    `extent: scene.bbox`, guard reqId na wyścig + AbortController; status idle/loading/ready/empty/error.
   - `SearchBox.tsx` — debounce 600 ms + abort, lista trafień, onSelect/onClear.
-  - `App.tsx` — tryb addytywny: wybór miejsca przerywa tour, czyści region, leci do punktu (z13).
+  - `App.tsx` — tryb addytywny: wybór miejsca przerywa tour, czyści region, leci do punktu (z13);
+    cap kamery per źródło (`scene.maxZoom + 0.5`); atrybucja z `scene.label` (cloud tylko dla S2).
 - **DoD:**
   - [x] `npx tsc -b` + `npm run build` czysto
-  - [x] STAC POST + tile endpoint zweryfikowane na żywo (Dubai: HTTP 200 image/png z13)
+  - [x] STAC POST + tile endpoint zweryfikowane na żywo: S2 (Dubai, z13/z14 `@2x`) + NAIP (SF, z18 `@2x`, 0.6 m)
   - [x] Tryb Explore nie psuje trybu 3-regionowego (addytywne extraLayers)
-  - [ ] Smoke ręczny w `npm run dev` (wpisać miasto → lot + kafle S2) — do potwierdzenia przez Piotra
+  - [x] Smoke ręczny w `npm run dev` (Dubai Marina → lot + kafle S2) potwierdzony przez Piotra
+  - [ ] Smoke NAIP w `npm run dev` (np. San Francisco → 0.6 m) — do potwierdzenia wizualnie
 
 ### T10.4 — Explore polish ⧗ TODO (WS4)
 - **Dependencies:** T10.3

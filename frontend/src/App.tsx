@@ -18,7 +18,7 @@ import { useTour } from '@/hooks/useTour'
 import { usePreload } from '@/hooks/usePreload'
 import { useRevealOpacity } from '@/hooks/useRevealOpacity'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
-import { useSentinelLayer } from '@/hooks/useSentinelLayer'
+import { useExploreLayer } from '@/hooks/useExploreLayer'
 import type { HeatmapMetric } from '@/hooks/useHeatmapLayer'
 import type { GeocodeResult } from '@/lib/geocode'
 
@@ -110,9 +110,12 @@ function App() {
     bbox: arrivedBbox,
   })
 
-  const { layers: sentinelLayers, scene: sentinelScene, status: sentinelStatus } = useSentinelLayer({
+  const { layers: exploreLayers, scene: exploreScene, status: exploreStatus } = useExploreLayer({
     target: exploreTarget,
   })
+
+  // Cap kamery per źródło — odrobina headroomu nad natywnym sufitem kafli (NAIP z18, S2 z14).
+  const exploreMaxZoom = exploreScene ? exploreScene.maxZoom + 0.5 : 16
 
   // Wyszukiwarka → wejście w tryb Explore nad punktem (przerywa tour i czyści region).
   const handleSearchSelect = useCallback(
@@ -142,9 +145,10 @@ function App() {
       <Starfield />
       <Globe
         tileUrl={tileUrl}
-        extraLayers={[...pmtilesLayers, ...heatmapLayers, ...sentinelLayers]}
+        extraLayers={[...pmtilesLayers, ...heatmapLayers, ...exploreLayers]}
         flyTarget={flyTarget}
         flyToCoords={flyCoords}
+        maxZoom={exploreMaxZoom}
         onRegionSelect={handleRegionSelect}
         onRegionArrival={handleRegionArrival}
         onViewZoomChange={setViewportZoom}
@@ -153,15 +157,16 @@ function App() {
       <SearchBox onSelect={handleSearchSelect} onClear={handleSearchClear} active={!!exploreTarget} />
       {exploreTarget && (
         <div className="absolute bottom-6 right-4 max-w-xs rounded-xl bg-black/50 px-4 py-3 text-xs backdrop-blur">
-          {sentinelStatus === 'loading' && <p className="text-white/60">Finding clearest Sentinel-2 scene…</p>}
-          {sentinelStatus === 'empty' && <p className="text-amber-300/80">No clear Sentinel-2 scene here.</p>}
-          {sentinelStatus === 'error' && <p className="text-red-300/80">Failed to load Sentinel-2 scene.</p>}
-          {sentinelStatus === 'ready' && sentinelScene && (
+          {exploreStatus === 'loading' && <p className="text-white/60">Finding best imagery here…</p>}
+          {exploreStatus === 'empty' && <p className="text-amber-300/80">No clear imagery available here.</p>}
+          {exploreStatus === 'error' && <p className="text-red-300/80">Failed to load imagery.</p>}
+          {exploreStatus === 'ready' && exploreScene && (
             <>
               <p className="font-medium text-white">
-                {new Date(sentinelScene.datetime).toLocaleDateString()} · {sentinelScene.cloudCover.toFixed(1)}% cloud
+                {new Date(exploreScene.datetime).toLocaleDateString()}
+                {exploreScene.cloudCover !== null && ` · ${exploreScene.cloudCover.toFixed(1)}% cloud`}
               </p>
-              <p className="mt-1 text-white/50">Sentinel-2 L2A · Microsoft Planetary Computer</p>
+              <p className="mt-1 text-white/50">{exploreScene.label}</p>
             </>
           )}
         </div>
