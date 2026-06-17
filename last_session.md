@@ -1,66 +1,68 @@
 # last_session.md
 
-Sesja: 2026-06-16 · 19:00-22:00
+Sesja: 2026-06-17 · 22:00-23:18
 Status: ✓ Zakończona poprawnie
-Punkt odniesienia (git): 198db31 @ master
+Punkt odniesienia (git): 2d05d6f @ master
 
 ---
 
 ## ▸ NASTĘPNY KROK (zacznij tutaj)
 
-**S10 Workstream 3 — Frontend Explore Mode (ZERO-BACKEND).** Zacznij od `frontend/src/lib/mpc.ts`:
-port logiki scene-pick z `scripts/poc_sentinel2.py` do TS — STAC `POST /api/stac/v1/search`
-(`collections=[sentinel-2-l2a]`, filtr `eo:cloud_cover`, wybór min cloud + świeża) → zwróć `itemId`;
-plus helper budujący URL kafla `…/api/data/v1/item/tiles/WebMercatorQuad/{z}/{x}/{y}@1x.png?collection=sentinel-2-l2a&item=<id>&assets=visual`.
-Potem: `SearchBox.tsx` (Nominatim), `useSentinelLayer.ts` (deck.gl `TileLayer`, mirror `Globe.tsx:85-97`),
-tryb Explore w `App.tsx`/`Globe.tsx` (addytywny, cap zoomu street-level). Kandydat na `/sonnet`.
+**T10.5 — paginacja historii S2 w trybie Explore.** Oś czasu sięga wstecz tylko ~2025
+(objaw zgłoszony przez Piotra), bo `listScenes()` w `frontend/src/lib/mpc.ts` ma `limit:250`,
+co przy ~2 orbitach na punkt daje <2 lata. Dodać paginację STAC (`token`/`next` link z
+odpowiedzi `/search`) ALBO strategię „best-per-month" dla głębszej historii do 2015 bez
+pobierania tysięcy scen. Potem smoke wizualny: przejazd suwakiem przez wiele lat.
 
-Kontekst: PoC S2 udany (10 m street-level), CORS `*` na STAC + tile endpoint potwierdzony → backend
-NIEpotrzebny (front woła MPC bezpośrednio). Architektura w planie:
-`C:\Users\plazo\.claude\plans\joyful-twirling-nova.md`.
+Kontekst: tryb Explore (kaskada NAIP→S2 + oś czasu + przełącznik źródła) wdrożony i zweryfikowany
+e2e dziś; to jedyne znane ograniczenie funkcjonalne. MPC search wrócił do działania po przejściowym
+outage (504). Reszta T10.5 (cap kamery per-strefa, ESRGAN-dopał) niżej w backlogu.
 
 ---
 
 ## Co zrobiono w tej sesji
 
-- ✓ **ESRGAN-w-PMTiles WDROŻONY** (commit `1088c52`) — `process` (+`--date`), `export` (+`--sr`).
-  Render 52 kafle 2048² SR (amazonia z6+z7, 2023-07-01) → `amazonia_v20260616_190200.pmtiles` (14 MB)
-  → deploy HF. Zweryfikowane e2e: kafel z7 z HF = 2048² SR. **Domyka lukę AI/ML dla amazonii.**
-- ✓ **Skan zachmurzenia** (commit `198db31`, `scripts/scan_cloud_cover.py`) — 2023-07-01 to obiektywnie
-  najczystsza data amazonii (cloud_frac 0.219). Rozpoznano sufit Architektury A (z7 ≈120 m/px); „brak
-  różnicy" na prod = lokalny cache przeglądarki (ścieżka HF→SR zweryfikowana jako poprawny SR).
-- ✓ **/architect S10 + pivot na Sentinel-2** — architektura zatwierdzona (MPC hostowany tiler).
-- ✓ **PoC Sentinel-2 UDANY** (commit `198db31`, `scripts/poc_sentinel2.py`) — scena 0.0% chmur, kafel
-  pctiler `assets=visual`, ostrość 10 m (Dubai street-level). SSL: `pystac` hardkoduje `verify=True`
-  → fix env `REQUESTS_CA_BUNDLE`=`win-ca-bundle.pem`.
-- ✓ **Backend rozstrzygnięty = ZERO-BACKEND** — Cloudflare odpadł (brak konta), ale zbędny: tiler MPC
-  publiczny + STAC/data-API `ACAO: *` → front woła MPC bezpośrednio.
-- ✓ **MEMORY** zaktualizowany: wpis [2026-06-16] (SR + pivot S2 + zero-backend + niuans SSL pystac).
+- ✓ **S10 WS3 — Explore Mode wdrożony** (commit `ccea853`) — `lib/mpc.ts` (scene-pick, port z PoC),
+  `lib/geocode.ts` (Nominatim), `useExploreLayer.ts`, `SearchBox.tsx`, prop `flyToCoords`+cap zoomu w
+  `Globe.tsx`, tryb addytywny w `App.tsx`. tsc+build czyste; STAC POST + tile endpoint zweryfikowane na żywo.
+- ✓ **Kaskada źródeł NAIP→S2** (commit `f9d8fd2`) — `resolveScene` (potem `listScenes`): NAIP 0.6 m (USA, z18,
+  `assets=image asset_bidx=image|1,2,3`) → fallback S2 10 m (z14, `assets=visual`). Kafle `@2x` retina.
+  Cap kamery per źródło. Decyzja: realne>syntetyczne, ESRGAN odłożony. NAIP @2x z18 zweryfikowany (SF, 0.6 m).
+- ✓ **Odporność na awarie MPC** (commit `c4caa09`) — NAIP failure → fallback S2; `stacSearch` timeout per
+  próba + retry na 504/503; relaks progu chmur; łagodny komunikat błędu. Zdiagnozowany przejściowy outage MPC
+  search (504 ~30 s dla wszystkiego, health 200) — degradacja po stronie Microsoftu, nie nasz bug.
+- ✓ **Oś czasu + ręczny przełącznik źródła** (commit `a478603`) — `listScenes()` (NAIP 24 + S2 250, bez
+  filtra chmur), `useExploreScenes`/`useExploreLayer` (split), `useExploreSelection`, `ExploreControls.tsx`
+  (suwak dat, przełącznik NAIP/S2, toggle „Clear skies only" <20% off domyślnie). Listy zweryfikowane na żywo.
+- ✓ **MASTER_PLAN** — sprint S10 sformalizowany (T10.3/T10.4 DONE, T10.5 TODO), taksonomia S3 poprawiona
+  (Satlas→Real-ESRGAN). MEMORY projektowy + auto-memory zaktualizowane (`project_explore_source_cascade`).
 
 ## Co zostało (backlog sesji)
 
-- ⧗ **S10 WS3 frontend** — `lib/mpc.ts` + `SearchBox` + `useSentinelLayer` + tryb Explore (patrz NASTĘPNY KROK).
-- ⧗ **S10 WS4 polish** — picker daty/cloud, atrybucja Sentinel-2/MPC, cap zoomu kamery, stany błędu/empty.
-- ⧗ **Formalizacja S10 w MASTER_PLAN.md** — nie ma jeszcze sprintu S10; taksonomia S3 używa starej nazwy
-  „Satlas" (pivot na Real-ESRGAN + S2 nieodzwierciedlony). Do uporządkowania przy starcie WS3.
-- ⧗ **Follow-up SR dubai+arctic** (opcjonalnie — ten sam wzorzec; arctic = MODIS_Terra dla lat≥70).
+- ⧗ **T10.5 paginacja S2** — patrz NASTĘPNY KROK (oś czasu tylko do ~2025).
+- ⧗ **T10.5 pozostałe** — dokładniejszy cap kamery per-strefa, rozbudowane stany empty/error,
+  opcjonalny ESRGAN-dopał na kaflach S2 (świadomie odłożony — `project_explore_source_cascade`).
+- ⧗ **Smoke wizualny Explore** — przełączanie źródła/dat/filtra na `npm run dev` (SF/Manhattan dla NAIP,
+  Dubai dla S2) — częściowo potwierdzone przez Piotra (działa; objaw daty-do-2025 zgłoszony).
+- 🟡 **Push** — `master` 9 commitów przed `origin/master` (niezpushowane); Vercel auto-deploy po pushu.
 
 ## Aktywne pliki
 
-- `scripts/poc_sentinel2.py` — PoC S2 (scene-pick + tile URL); **baza do portu** `frontend/src/lib/mpc.ts`
-- `scripts/scan_cloud_cover.py` — ranking dat wg zachmurzenia (reuse dla dubai/arctic)
-- `frontend/src/components/Globe.tsx` — `makeTileLayer` (`:85-97`, mirror dla `useSentinelLayer`); `controller` free-zoom
-- `frontend/src/App.tsx` — miejsce na tryb Explore (addytywny do hooka 3-regionowego)
-- (do powstania) `frontend/src/lib/mpc.ts`, `components/SearchBox.tsx`, `hooks/useSentinelLayer.ts`
+- `frontend/src/lib/mpc.ts` — `listScenes()` (kaskada NAIP+S2), `stacSearch` (timeout+retry), `@2x`, `lonLatToTile`
+- `frontend/src/hooks/useExploreLayer.ts` — `useExploreScenes` (lista) + `useExploreLayer` (warstwa z wybranej sceny)
+- `frontend/src/hooks/useExploreSelection.ts` — stan: źródło/filtr chmur/index daty
+- `frontend/src/components/ExploreControls.tsx` — suwak dat + przełącznik źródła + toggle chmur
+- `frontend/src/components/SearchBox.tsx`, `frontend/src/lib/geocode.ts` — wyszukiwarka (Nominatim)
+- `frontend/src/App.tsx`, `frontend/src/components/Globe.tsx` — wpięcie trybu Explore (addytywne)
 
 ## Otwarte pytania
 
-- Geocoder: Nominatim (ToS ≤1 req/s) wystarczy na demo, czy od razu managed (Photon/Mapbox)?
-- ESRGAN SR jako opcjonalny dopał na kaflach S2 — czy w ogóle potrzebny przy realnym 10 m?
-- Cap zoomu kamery dla street-level — jaki maxZoom GlobeView dla S2 z14?
+- Paginacja S2 vs best-per-month dla głębi historii (>250 scen) — która strategia (T10.5)?
+- ESRGAN-dopał na S2 poza USA — czy w ogóle (świadomie odłożony, real 10 m może wystarczyć)?
+- Geocoder: Nominatim wystarczy na demo, czy managed przy większym ruchu?
 
 ## Do MEMORY.md (przeniesiono)
 
-- [2026-06-16] SR wdrożony (`1088c52`) + pivot S2/S10 (MPC, PoC udany, params `assets=visual` zapinowane,
-  zero-backend bo CORS `*` + tiler publiczny) + niuans SSL `pystac` (`verify=True` → `REQUESTS_CA_BUNDLE`).
-  Wpis w projektowym MEMORY.md, sekcja Architektura.
+- [2026-06-17] S10 Explore FRONTEND wdrożony — kaskada NAIP→S2 + oś czasu + przełącznik źródła, zero-backend,
+  `@2x` retina, odporność na 504 MPC, ograniczenie limit:250. Wpis w projektowym MEMORY.md (Architektura).
+- `project_explore_source_cascade` (auto-memory) — decyzja: realne źródło per lokalizacja, ESRGAN odłożony.
