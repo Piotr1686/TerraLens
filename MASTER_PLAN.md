@@ -939,7 +939,9 @@ WS3 frontend Explore (✓), WS4 polish (⧗).
   - [ ] Smoke wizualny (przełączanie źródła/dat/filtra na `npm run dev`) — do potwierdzenia przez Piotra
 
 ### T10.5 — Explore polish (pozostałe) ⧗ TODO
-- **Zakres:** dokładniejszy cap kamery per-strefa, rozbudowane stany empty/error, paginacja >250 scen S2,
+- **Zakres:** dokładniejszy cap kamery per-strefa, rozbudowane stany empty/error,
+  **paginacja >250 scen S2** (objaw: oś czasu sięga wstecz tylko ~2025, nie do 2015 — `limit:250`
+  przy ~2 orbitach/punkt ≈ <2 lata historii; trzeba STAC pagination lub best-per-month dla głębi),
   opcjonalny ESRGAN-dopał na kaflach S2 (świadomie odłożony — patrz MEMORY `project_explore_source_cascade`).
 
 **🏁 Sprint 10 complete when:** T10.3–T10.4 ✓ + deploy na Vercel zweryfikowany.
