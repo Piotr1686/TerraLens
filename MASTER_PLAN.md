@@ -945,7 +945,10 @@ WS3 frontend Explore (✓), WS4 polish (⧗).
   `eo:cloud_cover` → oś czasu sięga 2016 przy ≤ ~120 scenach. Zweryfikowane na żywo MPC (Dubai:
   4 strony → 126 miesięcy, 2016-01…2026-06). NAIP bez zmian (`listNaip`, 1 strona). tsc+build czyste.
   - [ ] Smoke wizualny suwaka (Dubai wiele lat / SF NAIP) na `npm run dev` — do potwierdzenia przez Piotra
-- **Zakres pozostały:** dokładniejszy cap kamery per-strefa, rozbudowane stany empty/error,
+- [x] **Przycisk Retry przy błędzie** (`useExploreLayer.ts` + `App.tsx`): `useExploreScenes` zwraca
+  `retry()` (bump nonce w deps efektu → ponawia `listScenes` bez zmiany targetu); przycisk w panelu
+  błędu — odpowiedź na przejściowe 504 MPC. commit `f1da326` (niezpushowany, do późniejszej paczki).
+- **Zakres pozostały:** dokładniejszy cap kamery per-strefa (obecnie per-źródło `maxZoom+0.5`),
   opcjonalny ESRGAN-dopał na kaflach S2 (świadomie odłożony — patrz MEMORY `project_explore_source_cascade`).
 
 **🏁 Sprint 10 complete when:** T10.3–T10.4 ✓ + deploy na Vercel zweryfikowany.
