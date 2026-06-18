@@ -112,7 +112,7 @@ function App() {
     bbox: arrivedBbox,
   })
 
-  const { scenes: exploreScenes, status: exploreStatus } = useExploreScenes(exploreTarget)
+  const { scenes: exploreScenes, status: exploreStatus, retry: exploreRetry } = useExploreScenes(exploreTarget)
   const exploreSel = useExploreSelection(exploreScenes)
   const exploreScene = exploreSel.scene
   const exploreLayers = useExploreLayer({ scene: exploreScene })
@@ -162,7 +162,17 @@ function App() {
         <div className="absolute bottom-6 right-4 max-w-xs rounded-xl bg-black/50 px-4 py-3 text-xs backdrop-blur">
           {exploreStatus === 'loading' && <p className="text-white/60">Finding imagery here…</p>}
           {exploreStatus === 'empty' && <p className="text-amber-300/80">No imagery available here.</p>}
-          {exploreStatus === 'error' && <p className="text-amber-300/80">Imagery service is busy — try again in a moment.</p>}
+          {exploreStatus === 'error' && (
+            <div className="flex items-center gap-3">
+              <p className="text-amber-300/80">Imagery service is busy.</p>
+              <button
+                onClick={exploreRetry}
+                className="rounded-lg bg-white/10 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-white/20"
+              >
+                Retry
+              </button>
+            </div>
+          )}
           {exploreStatus === 'ready' && exploreScene && <p className="text-white/60">{exploreScene.label}</p>}
         </div>
       )}

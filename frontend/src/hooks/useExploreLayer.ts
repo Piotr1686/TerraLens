@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { TileLayer } from '@deck.gl/geo-layers'
 import { BitmapLayer } from '@deck.gl/layers'
 import { COORDINATE_SYSTEM } from '@deck.gl/core'
@@ -15,9 +15,12 @@ export type ExploreStatus = 'idle' | 'loading' | 'ready' | 'empty' | 'error'
 export function useExploreScenes(target: { lon: number; lat: number } | null): {
   scenes: SceneList | null
   status: ExploreStatus
+  retry: () => void
 } {
   const [scenes, setScenes] = useState<SceneList | null>(null)
   const [status, setStatus] = useState<ExploreStatus>('idle')
+  // Nonce do ręcznego ponowienia po błędzie (MPC bywa przejściowo 504 — patrz mpc.ts stacSearch).
+  const [nonce, setNonce] = useState(0)
   const reqId = useRef(0)
 
   useEffect(() => {
@@ -46,9 +49,12 @@ export function useExploreScenes(target: { lon: number; lat: number } | null): {
       })
 
     return () => ctrl.abort()
-  }, [target?.lon, target?.lat]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [target?.lon, target?.lat, nonce]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { scenes, status }
+  // Wymusza ponowne pobranie dla bieżącego punktu (bez zmiany targetu).
+  const retry = useCallback(() => setNonce((n) => n + 1), [])
+
+  return { scenes, status, retry }
 }
 
 /**
