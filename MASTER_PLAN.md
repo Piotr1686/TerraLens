@@ -938,10 +938,14 @@ WS3 frontend Explore (✓), WS4 polish (⧗).
   - [x] Listy zweryfikowane na żywo: S2 Dubai (8 dat co ~5 dni, cloud 0–11.8%), NAIP SF (6 dat 2012–2022)
   - [ ] Smoke wizualny (przełączanie źródła/dat/filtra na `npm run dev`) — do potwierdzenia przez Piotra
 
-### T10.5 — Explore polish (pozostałe) ⧗ TODO
-- **Zakres:** dokładniejszy cap kamery per-strefa, rozbudowane stany empty/error,
-  **paginacja >250 scen S2** (objaw: oś czasu sięga wstecz tylko ~2025, nie do 2015 — `limit:250`
-  przy ~2 orbitach/punkt ≈ <2 lata historii; trzeba STAC pagination lub best-per-month dla głębi),
+### T10.5 — Explore polish (pozostałe) ⟳ IN PROGRESS
+- [x] **Głęboka historia S2 — best-per-month na paginacji** (`lib/mpc.ts`): `stacSearch` zwraca
+  `{features, nextToken}` (token z `links[rel=next].body.token`); `listSentinelBestPerMonth`
+  paginuje od podłogi `2016-01-01` (max 12 stron × 250), bucketuje po `YYYY-MM` trzymając min
+  `eo:cloud_cover` → oś czasu sięga 2016 przy ≤ ~120 scenach. Zweryfikowane na żywo MPC (Dubai:
+  4 strony → 126 miesięcy, 2016-01…2026-06). NAIP bez zmian (`listNaip`, 1 strona). tsc+build czyste.
+  - [ ] Smoke wizualny suwaka (Dubai wiele lat / SF NAIP) na `npm run dev` — do potwierdzenia przez Piotra
+- **Zakres pozostały:** dokładniejszy cap kamery per-strefa, rozbudowane stany empty/error,
   opcjonalny ESRGAN-dopał na kaflach S2 (świadomie odłożony — patrz MEMORY `project_explore_source_cascade`).
 
 **🏁 Sprint 10 complete when:** T10.3–T10.4 ✓ + deploy na Vercel zweryfikowany.

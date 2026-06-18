@@ -67,6 +67,18 @@ interface StacFeature {
   }
 }
 
+// STAC paginuje przez link rel=next; MPC zwraca token w `body.token` (POST, merge=true).
+interface StacLink {
+  rel: string
+  body?: { token?: string }
+}
+
+interface StacPage {
+  features: StacFeature[]
+  /** Token następnej strony (undefined = ostatnia strona). */
+  nextToken?: string
+}
+
 interface ListOptions {
   signal?: AbortSignal
 }
@@ -74,9 +86,14 @@ interface ListOptions {
 /** Listy dostępnych scen per źródło dla danego punktu (posortowane datą desc). */
 export type SceneList = Record<Source, SceneResult[]>
 
-// Ile scen pobrać per źródło. S2 ma rewizytę ~5 dni → 250 ≈ ~3.5 roku historii.
-// NAIP ma kilka akwizycji (co ~2 lata) → mała liczba wystarcza.
-const LIST_LIMIT: Record<Source, number> = { naip: 24, 'sentinel-2': 250 }
+// NAIP ma kilka akwizycji (co ~2 lata) → jedna strona wystarcza.
+const NAIP_LIMIT = 24
+
+// Podłoga historii S2 (start ~2016 — przed tym akwizycje rzadkie/dziurawe).
+const S2_HISTORY_FLOOR = '2016-01-01T00:00:00Z'
+// Rozmiar strony przy paginacji S2 oraz bezpiecznik liczby stron (12 × 250 = 3000 scen).
+const S2_PAGE_LIMIT = 250
+const S2_MAX_PAGES = 12
 
 interface SearchHttpOptions {
   signal?: AbortSignal
@@ -89,7 +106,7 @@ interface SearchHttpOptions {
 async function stacSearch(
   body: object,
   { signal, timeoutMs = 12000, retries = 1 }: SearchHttpOptions = {},
-): Promise<StacFeature[]> {
+): Promise<StacPage> {
   let lastErr: unknown
   for (let attempt = 0; attempt <= retries; attempt++) {
     // Łączymy zewnętrzny abort (nowsze zapytanie) z timeoutem próby.
@@ -105,8 +122,9 @@ async function stacSearch(
       // 504/503 = przejściowa degradacja bramy MPC → traktuj jak błąd do ponowienia.
       if (res.status === 504 || res.status === 503) throw new Error(`STAC ${res.status}`)
       if (!res.ok) throw new Error(`STAC search HTTP ${res.status}`)
-      const data = (await res.json()) as { features?: StacFeature[] }
-      return data.features ?? []
+      const data = (await res.json()) as { features?: StacFeature[]; links?: StacLink[] }
+      const nextToken = data.links?.find((l) => l.rel === 'next')?.body?.token
+      return { features: data.features ?? [], nextToken }
     } catch (err) {
       if (signal?.aborted) throw err // anulowanie przez nowsze zapytanie — przerwij
       lastErr = err
@@ -143,23 +161,57 @@ function buildScene(source: Source, f: StacFeature, lon: number, lat: number): S
   }
 }
 
-/** Lista scen jednego źródła nad punktem (datą desc, BEZ filtra chmur — wszystkie daty). */
-async function listForSource(
-  source: Source,
+/** Lista akwizycji NAIP nad punktem (datą desc) — jedna strona, kilka scen wystarcza. */
+async function listNaip(lon: number, lat: number, http: SearchHttpOptions): Promise<SceneResult[]> {
+  const { features } = await stacSearch(
+    {
+      collections: [SOURCES.naip.collection],
+      intersects: { type: 'Point', coordinates: [lon, lat] },
+      sortby: [{ field: 'properties.datetime', direction: 'desc' }],
+      limit: NAIP_LIMIT,
+    },
+    http,
+  )
+  return features.map((f) => buildScene('naip', f, lon, lat))
+}
+
+/**
+ * Lista scen S2 nad punktem od podłogi {@link S2_HISTORY_FLOOR}, jedna najczystsza na miesiąc.
+ * Paginujemy STAC (link rel=next), bucketujemy w locie po YYYY-MM trzymając min cloud_cover —
+ * dzięki temu oś czasu sięga ~2016 przy ≤ ~120 scenach (zamiast tysięcy) i bez zachmurzonych przelotów.
+ */
+async function listSentinelBestPerMonth(
   lon: number,
   lat: number,
   http: SearchHttpOptions,
 ): Promise<SceneResult[]> {
-  const features = await stacSearch(
-    {
-      collections: [SOURCES[source].collection],
-      intersects: { type: 'Point', coordinates: [lon, lat] },
-      sortby: [{ field: 'properties.datetime', direction: 'desc' }],
-      limit: LIST_LIMIT[source],
-    },
-    http,
-  )
-  return features.map((f) => buildScene(source, f, lon, lat))
+  const buckets = new Map<string, StacFeature>() // 'YYYY-MM' → najmniej zachmurzona scena
+  let token: string | undefined
+  for (let page = 0; page < S2_MAX_PAGES; page++) {
+    const { features, nextToken } = await stacSearch(
+      {
+        collections: [SOURCES['sentinel-2'].collection],
+        intersects: { type: 'Point', coordinates: [lon, lat] },
+        datetime: `${S2_HISTORY_FLOOR}/..`,
+        sortby: [{ field: 'properties.datetime', direction: 'desc' }],
+        limit: S2_PAGE_LIMIT,
+        ...(token ? { token } : {}),
+      },
+      http,
+    )
+    for (const f of features) {
+      const month = f.properties.datetime.slice(0, 7) // 'YYYY-MM'
+      const prev = buckets.get(month)
+      const cc = f.properties['eo:cloud_cover'] ?? 100
+      const prevCc = prev?.properties['eo:cloud_cover'] ?? 100
+      if (!prev || cc < prevCc) buckets.set(month, f)
+    }
+    if (!nextToken || features.length === 0) break
+    token = nextToken
+  }
+  return [...buckets.values()]
+    .map((f) => buildScene('sentinel-2', f, lon, lat))
+    .sort((a, b) => b.datetime.localeCompare(a.datetime)) // najnowsze pierwsze (parytet z suwakiem)
 }
 
 /**
@@ -169,12 +221,12 @@ async function listForSource(
  */
 export async function listScenes(lon: number, lat: number, { signal }: ListOptions = {}): Promise<SceneList> {
   const [naip, sentinel] = await Promise.all([
-    listForSource('naip', lon, lat, { signal, timeoutMs: 8000, retries: 0 }).catch((err) => {
+    listNaip(lon, lat, { signal, timeoutMs: 8000, retries: 0 }).catch((err) => {
       if (signal?.aborted) throw err
       console.warn('NAIP niedostępny:', err)
       return [] as SceneResult[]
     }),
-    listForSource('sentinel-2', lon, lat, { signal }),
+    listSentinelBestPerMonth(lon, lat, { signal }),
   ])
   return { naip, 'sentinel-2': sentinel }
 }
