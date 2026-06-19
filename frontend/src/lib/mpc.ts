@@ -103,9 +103,27 @@ interface SearchHttpOptions {
   retries?: number
 }
 
+// Bazowy odstęp backoffu między ponowieniami (rośnie wykładniczo: 700 ms, 1.4 s, 2.8 s…).
+const BACKOFF_BASE_MS = 700
+
+// Sleep kończony natychmiast, gdy nadejdzie abort (nowsze zapytanie) — nie blokuje anulowania.
+function abortableSleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal?.aborted) return resolve()
+    const onAbort = () => done()
+    const done = () => {
+      clearTimeout(timer)
+      signal?.removeEventListener('abort', onAbort)
+      resolve()
+    }
+    const timer = setTimeout(done, ms)
+    signal?.addEventListener('abort', onAbort, { once: true })
+  })
+}
+
 async function stacSearch(
   body: object,
-  { signal, timeoutMs = 12000, retries = 1 }: SearchHttpOptions = {},
+  { signal, timeoutMs = 12000, retries = 2 }: SearchHttpOptions = {},
 ): Promise<StacPage> {
   let lastErr: unknown
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -128,6 +146,8 @@ async function stacSearch(
     } catch (err) {
       if (signal?.aborted) throw err // anulowanie przez nowsze zapytanie — przerwij
       lastErr = err
+      // Wykładniczy backoff przed kolejną próbą — daje bramie MPC czas na otrząśnięcie się po blipie.
+      if (attempt < retries) await abortableSleep(BACKOFF_BASE_MS * 2 ** attempt, signal)
     }
   }
   throw lastErr
@@ -221,7 +241,7 @@ async function listSentinelBestPerMonth(
  */
 export async function listScenes(lon: number, lat: number, { signal }: ListOptions = {}): Promise<SceneList> {
   const [naip, sentinel] = await Promise.all([
-    listNaip(lon, lat, { signal, timeoutMs: 8000, retries: 0 }).catch((err) => {
+    listNaip(lon, lat, { signal, timeoutMs: 8000, retries: 1 }).catch((err) => {
       if (signal?.aborted) throw err
       console.warn('NAIP niedostępny:', err)
       return [] as SceneResult[]

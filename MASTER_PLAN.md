@@ -947,7 +947,12 @@ WS3 frontend Explore (✓), WS4 polish (⧗).
   - [ ] Smoke wizualny suwaka (Dubai wiele lat / SF NAIP) na `npm run dev` — do potwierdzenia przez Piotra
 - [x] **Przycisk Retry przy błędzie** (`useExploreLayer.ts` + `App.tsx`): `useExploreScenes` zwraca
   `retry()` (bump nonce w deps efektu → ponawia `listScenes` bez zmiany targetu); przycisk w panelu
-  błędu — odpowiedź na przejściowe 504 MPC. commit `f1da326` (niezpushowany, do późniejszej paczki).
+  błędu — odpowiedź na przejściowe 504 MPC. commit `f1da326` (zpushowany, paczka 2026-06-19).
+- [x] **Auto-odporność `stacSearch`** (`lib/mpc.ts`): wykładniczy backoff między próbami
+  (`abortableSleep`, 700 ms·2^n, kończony na abort) + `retries` 1→2 (S2) i 0→1 (NAIP, opcjonalny).
+  Przejściowe blipy MPC podnoszą się same, bez klikania Retry. Decyzja po rozpoznaniu alternatyw
+  (Earth Search/AWS ma stabilniejszy katalog, ale brak tilera + brak NAIP + tiler MPC nie renderuje
+  cudzych COG-ów → pełna podmiana nieopłacalna; zostajemy przy MPC). tsc+build czyste.
 - **Zakres pozostały:** dokładniejszy cap kamery per-strefa (obecnie per-źródło `maxZoom+0.5`),
   opcjonalny ESRGAN-dopał na kaflach S2 (świadomie odłożony — patrz MEMORY `project_explore_source_cascade`).
 
